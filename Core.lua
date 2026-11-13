@@ -70,7 +70,7 @@ SlashCmdList.POPOKIBAG = function(msg)
     elseif cmd == "" then
         ns.Toggle()
     else
-        ns.Print("commands: /popoki (toggle), /popoki settings, /popoki quests, /popoki armor, /popoki reset (window position)")
+        ns.Print("commands: /popoki (toggle), /popoki settings, /popoki room (make room), /popoki quests, /popoki armor, /popoki reset (window position)")
     end
 end
 

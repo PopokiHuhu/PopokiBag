@@ -1,4 +1,4 @@
-POPOKI BAG 1.0.3 - plecak z kategoriami dla WoW Forever
+POPOKI BAG 1.0.4 - plecak z kategoriami dla WoW Forever
 =========================================================
 
 Popoki Bag zastępuje zwykły plecak własnym oknem, w którym przedmioty są od razu
@@ -54,6 +54,22 @@ PRZECIĄGANIE I UKŁADANIE
 - Nowe przedmioty świecą do zamknięcia plecaka i pojawiają się na początku sekcji.
 - Kliknięcie w nagłówek sekcji ją zwija/rozwija.
 - Ikona torby w nagłówku: pasek założonych toreb (przeciągnij nową torbę, żeby ją założyć).
+- Shift + klik na stosie dzieli go; oddzielona część sama trafia do wolnego slotu.
+- Niepełne stosy tego samego przedmiotu łączą się same (poza walką i oknami NPC;
+  stos podzielony ręcznie zostaje rozdzielony przez 5 minut).
+- Plecak zawsze otwiera się na widoku Categories.
+
+
+PEŁNY PLECAK - "MAKE ROOM"
+--------------------------
+Gdy gra powie, że plecak jest pełny, otwiera się okno "Make room" (albo przycisk
+Make room w nagłówku plecaka; drugi klik zamyka). Pokazuje najtańsze rzeczy w plecaku,
+liczone po tym, co faktycznie leży w slocie (1 skóra z 20 to grosze).
+Przy otwartym lootcie u góry jest werdykt: "Worth it" (warto coś wyrzucić) albo
+"Not worth it" (to, co podnosisz, jest warte mniej niż wszystko na liście).
+Klik zaznacza, drugi klik niszczy - i od razu zabiera to, czego nie dało się podnieść.
+Nigdy nie proponuje: Quest Items (też tych z RestedXP), Essentials, Consumables,
+Misfits, "Use me!", zielonych "of the ..." i rzeczy bez ceny.
 
 
 OKNA PRZY NPC (otwierają się same, wyłączysz w ustawieniach)
@@ -71,10 +87,11 @@ USTAWIENIA I KOMENDY
 --------------------
 Zębatka w nagłówku plecaka albo /popoki settings:
   próg AH (% i minimalny zysk), automatyczne okna przy NPC, świecenie nowych
-  przedmiotów, kolorowanie pancerza.
+  przedmiotów, kolorowanie pancerza, łączenie stosów, okno Make room.
 
 /popoki            - otwórz / zamknij plecak (działa też stare /plecak)
 /popoki settings   - ustawienia
+/popoki room       - okno Make room
 /popoki quests     - lista przedmiotów questowych: potrzebne / nie ma ich w dzienniku questów
 /popoki armor      - jaki typ pancerza addon rozpoznał u postaci
 /popoki reset      - przywróć domyślną pozycję okna

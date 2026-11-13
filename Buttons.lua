@@ -18,6 +18,7 @@ local pool = {}
 -- je wywoła), ale tylko gdy okienko podziału otworzył nasz slot - przy banku/poczcie
 -- Blizzarda zostawiamy przedmiot na kursorze.
 local REAGENT_BAG = 5
+ns.splitHold = {}   -- [itemID] = GetTime() ostatniego podziału
 
 local function FindFreeSlot(itemID)
     local family = C_Item.GetItemFamily(itemID) or 0
@@ -67,7 +68,7 @@ elseif OpenStackSplitFrame then
 end
 
 -- przy banku, poczcie, handlu i AH część zostaje na kursorze (pewnie chcesz ją tam włożyć)
-local function ElsewhereOpen()
+function ns.ElsewhereOpen()
     for _, name in ipairs({ "BankFrame", "MailFrame", "TradeFrame", "AuctionHouseFrame", "GuildBankFrame" }) do
         local f = _G[name]
         if f and f:IsShown() then return true end
@@ -75,12 +76,15 @@ local function ElsewhereOpen()
 end
 
 hooksecurefunc(C_Container, "SplitContainerItem", function(bag, slot)
+    -- rozdzielonych stosów nie scalamy z powrotem przez 5 minut (Room.lua)
+    local splitID = C_Container.GetContainerItemID(bag, slot)
+    if splitID then ns.splitHold[splitID] = GetTime() end
     local owner = StackSplitFrame and StackSplitFrame.owner
     local ours = (splitFromUs > 0 and GetTime() - splitFromUs < 120)
         or (owner and owner.popokiSlot)
         or (ns.frame and ns.frame:IsShown())
     splitFromUs = 0
-    if not ours or ElsewhereOpen() then return end
+    if not ours or ns.ElsewhereOpen() then return end
     local id = C_Container.GetContainerItemID(bag, slot)
     if not id then return end
     pending = { id = id, untilTime = GetTime() + 2 }

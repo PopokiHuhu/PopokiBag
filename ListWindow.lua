@@ -53,6 +53,7 @@ function ns.CreateItemListWindow(opts)
     hint:SetPoint("TOPLEFT", 14, -36)
     hint:SetTextColor(unpack(DIM_TEXT))
     hint:SetText(opts.hint)
+    win.hintText = hint
 
     -- zakładki w prawym górnym rogu, ustawiane przez win:SetTabs({ { key, label }, ... })
     -- (np. "For Vendor" + kategorie profesji postaci); opts.onTab(win, key) przeładowuje listę

@@ -76,6 +76,7 @@ end
 frame:SetScript("OnShow", function()
     ns.ResetRestedXPCache()
     PlaySound(SOUNDKIT.IG_BACKPACK_OPEN)
+    PopokiBagDB.view = "all"   -- plecak zawsze otwiera się na głównym widoku (Categories)
     ns.Refresh()
 end)
 frame:SetScript("OnHide", function()
