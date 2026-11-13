@@ -6,7 +6,7 @@ local ADDON, ns = ...
 
 local DIM_TEXT = { 0.6, 0.6, 0.6 }
 local ACCENT = { 0.25, 0.8, 0.7 }
-local WIDTH = 420
+local WIDTH = 480
 
 local function Flat(f, bg, edge)
     f:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8", edgeFile = "Interface/Buttons/WHITE8x8", edgeSize = 1 })
@@ -41,17 +41,19 @@ close:SetPoint("TOPRIGHT", 2, 2)
 
 local y = -44
 local controls = {}   -- odświeżane przy otwarciu okna
+local headerParts, checks = {}, {}   -- do przekolorowania przy zmianie motywu
 
 local function Header(text)
     local fs = win:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    fs:SetPoint("TOPLEFT", 14, y)
+    fs:SetPoint("TOPLEFT", 16, y)
     fs:SetTextColor(unpack(DIM_TEXT))
     fs:SetText(text)
     local line = win:CreateTexture(nil, "ARTWORK")
     line:SetHeight(1)
     line:SetPoint("LEFT", fs, "RIGHT", 8, 0)
-    line:SetPoint("RIGHT", win, "RIGHT", -14, 0)
+    line:SetPoint("RIGHT", win, "RIGHT", -16, 0)
     line:SetColorTexture(1, 1, 1, 0.08)
+    headerParts[#headerParts + 1] = { fs = fs, line = line }
     y = y - 22
 end
 
@@ -65,6 +67,7 @@ local function Toggle(key, text)
     b.check:SetPoint("TOPLEFT", 3, -3)
     b.check:SetPoint("BOTTOMRIGHT", -3, 3)
     b.check:SetColorTexture(unpack(ACCENT))
+    checks[#checks + 1] = b.check
     local label = win:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     label:SetPoint("LEFT", b, "RIGHT", 8, 0)
     label:SetText(text)
@@ -129,10 +132,67 @@ Toggle("roomPopup", "\"Make room\" window when bags are full")
 y = y - 6
 
 Header("Look")
+
+-- motyw okna plecaka: przyciski-wybór obok siebie, zaznaczony ma kolor akcentu
+do
+    local label = win:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    label:SetPoint("TOPLEFT", 16, y - 3)
+    label:SetText("Theme")
+    local prev
+    local choices = {}
+    for _, key in ipairs(ns.THEME_ORDER) do
+        local b = CreateFrame("Button", nil, win, "BackdropTemplate")
+        b:SetHeight(20)
+        if prev then b:SetPoint("LEFT", prev, "RIGHT", 6, 0) else b:SetPoint("LEFT", label, "RIGHT", 10, 0) end
+        b.text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        b.text:SetPoint("CENTER")
+        b.text:SetText(ns.THEMES[key].label)
+        b:SetWidth(b.text:GetStringWidth() + 20)
+        b.key = key
+        b:SetScript("OnClick", function(self)
+            ns.SetTheme(self.key)
+            for _, refresh in ipairs(controls) do refresh() end
+        end)
+        choices[#choices + 1] = b
+        prev = b
+    end
+    controls[#controls + 1] = function()
+        for _, b in ipairs(choices) do
+            local on = b.key == ns.ThemeKey()
+            if on then
+                Flat(b, { ACCENT[1], ACCENT[2], ACCENT[3], 0.2 }, { ACCENT[1], ACCENT[2], ACCENT[3], 1 })
+                b.text:SetTextColor(1, 1, 1)
+            else
+                Flat(b, { 1, 1, 1, 0.04 }, { 1, 1, 1, 0.25 })
+                b.text:SetTextColor(unpack(DIM_TEXT))
+            end
+        end
+    end
+    y = y - 28
+end
+
 Toggle("newGlow", "Glow on new items")
 Toggle("armorColors", "Color armor that isn't your type")
 
 win:SetHeight(-y + 14)
+
+-- motyw (Theme.lua): tło, tytuł, akcent przełączników i nagłówków
+ns.SkinWindow(win, {
+    title = title, titleX = 16, close = close, side = true,
+    onApply = function()
+        local th = ns.Theme()
+        for i = 1, 3 do
+            ACCENT[i] = th.accent[i]
+            DIM_TEXT[i] = th.dim[i]
+        end
+        for _, h in ipairs(headerParts) do
+            h.fs:SetTextColor(unpack(DIM_TEXT))
+            h.line:SetColorTexture(unpack(th.line))
+        end
+        for _, c in ipairs(checks) do c:SetColorTexture(unpack(ACCENT)) end
+        for _, refresh in ipairs(controls) do refresh() end
+    end,
+})
 
 function ns.ToggleSettings()
     if win:IsShown() then
@@ -140,57 +200,44 @@ function ns.ToggleSettings()
         return
     end
     for _, refresh in ipairs(controls) do refresh() end
-    win:ClearAllPoints()
-    if ns.frame and ns.frame:IsShown() then
-        win:SetPoint("TOPRIGHT", ns.frame, "TOPLEFT", -12, 0)
-    else
-        win:SetPoint("CENTER")
-    end
+    ns.PlaceBeside(win)   -- na lewo od plecaka i innych otwartych okien
     win:Show()
 end
 
 ns.commands.settings = ns.ToggleSettings
 
--- zębatka w nagłówku plecaka, na lewo od ikony toreb
+-- zębatka ustawień obok X w prawym górnym rogu (ikona Blizzarda; pierwsza, którą klient ma)
 local gear = CreateFrame("Button", nil, ns.frame)
-gear:SetSize(18, 18)
-gear:SetPoint("RIGHT", ns.bagBarButton, "LEFT", -8, 0)
+gear:SetSize(16, 16)
+gear:SetPoint("RIGHT", ns.closeButton, "LEFT", -6, 0)
+gear:SetFrameLevel(ns.closeButton:GetFrameLevel())
 gear.icon = gear:CreateTexture(nil, "ARTWORK")
 gear.icon:SetAllPoints()
-gear.icon:SetTexture("Interface/Icons/INV_Misc_Gear_01")
-gear.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-gear.icon:SetAlpha(0.85)
+local GEAR_ATLASES = { "QuestLog-icon-setting", "GM-icon-settings", "mechagon-projects" }
+local gearSet = false
+for _, atlas in ipairs(GEAR_ATLASES) do
+    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) then
+        gear.icon:SetAtlas(atlas)
+        gearSet = true
+        break
+    end
+end
+if not gearSet then gear.icon:SetTexture("Interface/Buttons/UI-OptionsButton") end
+gear.icon:SetVertexColor(0.85, 0.85, 0.85)
 gear:SetScript("OnEnter", function(self)
-    self.icon:SetAlpha(1)
+    self.icon:SetVertexColor(1, 1, 1)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:SetText("Settings")
     GameTooltip:Show()
 end)
 gear:SetScript("OnLeave", function(self)
-    self.icon:SetAlpha(0.85)
+    self.icon:SetVertexColor(0.85, 0.85, 0.85)
     GameTooltip:Hide()
 end)
 gear:SetScript("OnClick", function() GameTooltip:Hide() ns.ToggleSettings() end)
 
--- przycisk "Make room" w nagłówku plecaka, na lewo od zębatki (okno z Room.lua)
-local room = CreateFrame("Button", nil, ns.frame, "BackdropTemplate")
-room:SetHeight(18)
-room:SetPoint("RIGHT", gear, "LEFT", -8, 0)
-Flat(room, { 1, 1, 1, 0.04 }, { 1, 1, 1, 0.25 })
-room.text = room:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-room.text:SetPoint("CENTER")
-room.text:SetTextColor(0.85, 0.85, 0.85)
-room.text:SetText("Make room")
-room:SetWidth(room.text:GetStringWidth() + 16)
-room:SetScript("OnEnter", function(self)
-    self:SetBackdropBorderColor(1, 1, 1, 0.6)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText("Make room")
-    GameTooltip:AddLine("Cheapest things in your bags, to destroy when they're full", 0.75, 0.75, 0.75, true)
-    GameTooltip:Show()
-end)
-room:SetScript("OnLeave", function(self)
-    self:SetBackdropBorderColor(1, 1, 1, 0.25)
-    GameTooltip:Hide()
-end)
-room:SetScript("OnClick", function() GameTooltip:Hide() ns.ToggleRoom() end)
+-- przyciski z napisem w rzędzie wyszukiwarki, od prawej: [Bags] [Make room]
+local room = ns.HeaderButton(ns.frame, "Make room", "Make room",
+    "Cheapest things in your bags, to destroy when they're full",
+    function() ns.ToggleRoom() end)
+room:SetPoint("RIGHT", ns.bagBarButton, "LEFT", -8, 0)

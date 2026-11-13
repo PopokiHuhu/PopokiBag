@@ -15,6 +15,7 @@ win:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface
 win:SetBackdropColor(0.06, 0.06, 0.07, 0.95)
 win:SetBackdropBorderColor(0.2, 0.2, 0.22, 1)
 win:SetSize(NUM * (SIZE + GAP) - GAP + 20, SIZE + 20)
+ns.SkinWindow(win, { small = true })   -- motyw (Theme.lua)
 win:Hide()
 
 local slots = {}
@@ -114,29 +115,15 @@ function ns.RefreshBagBar()
 end
 
 -- przycisk w nagłówku, na lewo od wyszukiwarki
-local btn = CreateFrame("Button", nil, frame)
-btn:SetSize(24, 24)
-btn:SetPoint("RIGHT", ns.search, "LEFT", -8, 0)
+local btn = ns.HeaderButton(frame, "Bags",
+    function() return win:IsShown() and "Hide equipped bags" or "Show equipped bags" end,
+    "Bags you have equipped; drag a new bag onto a slot there to equip it",
+    function()
+        win:SetShown(not win:IsShown())
+        ns.RefreshBagBar()
+    end)
+btn:SetPoint("RIGHT", ns.search, "LEFT", -10, -1)   -- ramka wyszukiwarki Blizzarda jest wizualnie niżej niż jej środek
 ns.bagBarButton = btn
-btn.icon = btn:CreateTexture(nil, "ARTWORK")
-btn.icon:SetAllPoints()
-btn.icon:SetAtlas("bag-main")
-btn.icon:SetAlpha(0.85)
-btn:SetScript("OnEnter", function(self)
-    self.icon:SetAlpha(1)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText(win:IsShown() and "Hide Bags" or "Show Bags")
-    GameTooltip:Show()
-end)
-btn:SetScript("OnLeave", function(self)
-    self.icon:SetAlpha(0.85)
-    GameTooltip:Hide()
-end)
-btn:SetScript("OnClick", function()
-    GameTooltip:Hide()
-    win:SetShown(not win:IsShown())
-    ns.RefreshBagBar()
-end)
 
 win:SetPoint("BOTTOMRIGHT", btn, "TOPRIGHT", 0, 6)
 

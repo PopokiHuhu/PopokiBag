@@ -21,7 +21,7 @@ local misses = {}   -- [itemID] = ile razy się nie udało (np. związany + niez
 local function MergeStep()
     mergeQueued = false
     if not ns.Setting("autoStack") then return end
-    if InCombatLockdown() or CursorHasItem() or ns.merchantOpen or ns.ElsewhereOpen() then return end
+    if ns.compacting or InCombatLockdown() or CursorHasItem() or ns.merchantOpen or ns.ElsewhereOpen() then return end
     local stacks = {}
     for bag = ns.FIRST_BAG, ns.LAST_BAG do
         for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
@@ -199,6 +199,7 @@ win = ns.CreateItemListWindow({
 win.hintText:SetPoint("RIGHT", win, "RIGHT", -14, 0)
 win.hintText:SetJustifyH("LEFT")
 win.hintText:SetWordWrap(false)
+ns.RegisterSideWindow(win)
 
 local function OpenRoom()
     target = LootTarget()
@@ -208,7 +209,7 @@ local function OpenRoom()
         if LootFrame and LootFrame:IsShown() then
             win:SetPoint("TOPLEFT", LootFrame, "TOPRIGHT", 12, 0)
         else
-            win:SetPoint("CENTER", 0, 80)
+            ns.PlaceBeside(win)   -- na lewo od plecaka i innych otwartych okien
         end
         win:Show()
     end
@@ -234,3 +235,70 @@ function ns.ToggleRoom()
     if win:IsShown() then win:Hide() else OpenRoom() end
 end
 ns.commands.room = ns.ToggleRoom
+
+---------------------------------------------------------------------------
+-- 3) Sortowanie w widoku Bags ("Sort bags"): przedmioty po kolei zapełniają pierwsze torby,
+--    a puste sloty zostają w ostatnich - tak da się opróżnić torbę do wymiany.
+--    Ruszamy tylko zwykłe torby (bez torby na reagenty, kołczanów itp.). Kategorie, kolejność
+--    w sekcjach i przypisania są po rodzaju przedmiotu, więc przenosiny niczego tam nie zmieniają.
+---------------------------------------------------------------------------
+local REAGENT_BAG = 5
+local MAX_MOVES = 300
+
+local function GeneralSlots()
+    local list = {}
+    for bag = ns.FIRST_BAG, ns.LAST_BAG do
+        local _, family = C_Container.GetContainerNumFreeSlots(bag)
+        if bag ~= REAGENT_BAG and (not family or family == 0) then
+            for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+                list[#list + 1] = { bag = bag, slot = slot }
+            end
+        end
+    end
+    return list
+end
+
+function ns.CompactBags()
+    if ns.compacting then return end
+    if InCombatLockdown() then return ns.Print("Can't sort bags in combat.") end
+    ns.compacting = true
+    ns.RequestRefresh()
+    local moves, waits = 0, 0
+    local function finish(reason)
+        ns.compacting = false
+        if reason then ns.Print(reason) end
+        ns.RequestRefresh()
+    end
+    local function step()
+        if InCombatLockdown() then return finish("Sorting stopped: combat started.") end
+        if CursorHasItem() then return finish("Sorting stopped: you're holding an item.") end
+        local slots = GeneralSlots()
+        -- pierwszy pusty slot i ostatni zajęty za nim
+        local empty, last
+        for i, s in ipairs(slots) do
+            if not C_Container.GetContainerItemID(s.bag, s.slot) then empty = i break end
+        end
+        if empty then
+            for i = #slots, empty + 1, -1 do
+                local s = slots[i]
+                if C_Container.GetContainerItemID(s.bag, s.slot) then last = i break end
+            end
+        end
+        if not (empty and last) or moves >= MAX_MOVES then return finish() end
+        local from, to = slots[last], slots[empty]
+        local info = C_Container.GetContainerItemInfo(from.bag, from.slot)
+        if info and info.isLocked then
+            -- poprzedni ruch jeszcze się nie zakończył po stronie serwera
+            waits = waits + 1
+            if waits > 30 then return finish("Sorting stopped: an item stayed locked.") end
+            return C_Timer.After(0.2, step)
+        end
+        waits = 0
+        C_Container.PickupContainerItem(from.bag, from.slot)
+        C_Container.PickupContainerItem(to.bag, to.slot)
+        if CursorHasItem() then ClearCursor() return finish("Sorting stopped: couldn't move an item.") end
+        moves = moves + 1
+        C_Timer.After(0.12, step)
+    end
+    step()
+end

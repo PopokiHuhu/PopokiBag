@@ -94,6 +94,7 @@ slotsText:SetPoint("LEFT", title, "RIGHT", 10, 0)
 slotsText:SetTextColor(unpack(DIM_TEXT))
 
 local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+ns.closeButton = close
 close:SetPoint("TOPRIGHT", 2, 2)
 
 -- wyszukiwarka
@@ -283,6 +284,10 @@ local function UpdateSidebar(views, counts)
         y = y - 26
         b.key, b.isCategory = v.key, v.isCategory
         b.label:ClearAllPoints()
+        -- kategorie = podpunkty "Categories": mniejsza czcionka i wcięcie
+        b.label:SetFontObject(v.isCategory and "GameFontHighlightSmall" or "GameFontHighlight")
+        b.dot:ClearAllPoints()
+        b.dot:SetPoint("LEFT", v.isCategory and 20 or 10, 0)
         if v.color then
             b.dot:SetColorTexture(v.color[1], v.color[2], v.color[3], 1)
             b.dot:Show()
@@ -382,27 +387,37 @@ local function GetHeader(i)
         h:SetSize(GRID_W, SECTION_H)
         -- strzałka: w dół = rozwinięta, w prawo = zwinięta
         h.arrow = h:CreateTexture(nil, "OVERLAY")
-        h.arrow:SetTexture("Interface/Buttons/Arrow-Down-Up")
-        h.arrow:SetSize(14, 14)
-        h.arrow:SetPoint("LEFT", -2, -3)
+        h.arrow:SetSize(12, 12)
+        h.arrow:SetPoint("LEFT", 0, 0)
         h.text = h:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        h.text:SetTextColor(0.85, 0.85, 0.85)
+        h.text:SetTextColor(unpack(ns.Theme().header))
         h.line = h:CreateTexture(nil, "ARTWORK")
         h.line:SetHeight(1)
         h.line:SetPoint("LEFT", h.text, "RIGHT", 8, 0)
         h.line:SetPoint("RIGHT")
-        h.line:SetColorTexture(1, 1, 1, 0.08)
+        h.line:SetColorTexture(unpack(ns.Theme().line))
         -- "Sell" przy For Vendor (widoczny tylko przy otwartym vendorze)
         h.sell = CreateFrame("Button", nil, h, "BackdropTemplate")
         h.sell:SetSize(46, 18)
         h.sell:SetPoint("RIGHT", 0, 0)
-        SetFlatBackdrop(h.sell, { 1, 1, 1, 0.06 }, { 1, 1, 1, 0.25 })
         h.sell.text = h.sell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         h.sell.text:SetPoint("CENTER")
         h.sell.text:SetText("Sell")
-        h.sell:SetScript("OnEnter", function(self) self:SetBackdropBorderColor(1, 1, 1, 0.6) end)
-        h.sell:SetScript("OnLeave", function(self) self:SetBackdropBorderColor(1, 1, 1, 0.25) end)
-        h.sell:SetScript("OnClick", function() ns.SellVendorSection() end)
+        ns.SkinButton(h.sell)
+        -- ten sam przycisk: "Sell" przy For Vendor u vendora, "Sort bags" w widoku Bags
+        h.sell:SetScript("OnEnter", function(self)
+            ns.SkinButton(self, true)
+            if self.action == "sort" then
+                GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                GameTooltip:SetText("Sort bags")
+                GameTooltip:AddLine("Packs items into the first bags so the last ones end up empty. Categories don't change.", 0.75, 0.75, 0.75, true)
+                GameTooltip:Show()
+            end
+        end)
+        h.sell:SetScript("OnLeave", function(self) ns.SkinButton(self, false) GameTooltip:Hide() end)
+        h.sell:SetScript("OnClick", function(self)
+            if self.action == "sort" then ns.CompactBags() else ns.SellVendorSection() end
+        end)
         h.sell:Hide()
         local function drop(self) if self.catKey then ns.DropOnCategory(self.catKey) end end
         h:SetScript("OnReceiveDrag", drop)
@@ -420,12 +435,27 @@ local function GetHeader(i)
     return h
 end
 
+-- Ikona zwijania: szewrony z interfejsu gry (v = rozwinięta, > = zwinięta), a gdy klient
+-- ich nie ma - klasyczne plus/minus Blizzarda. Szewrony są białe, barwimy je kolorem nagłówka.
+local CHEVRONS = { "uitools-icon-chevron-down", "uitools-icon-chevron-right" }
+local hasChevrons = C_Texture and C_Texture.GetAtlasInfo
+    and C_Texture.GetAtlasInfo(CHEVRONS[1]) and C_Texture.GetAtlasInfo(CHEVRONS[2]) and true or false
+local function SetArrow(tex, collapsed)
+    if hasChevrons then
+        tex:SetAtlas(collapsed and CHEVRONS[2] or CHEVRONS[1])
+        tex:SetVertexColor(unpack(ns.Theme().header))
+    else
+        tex:SetTexture(collapsed and "Interface/Buttons/UI-PlusButton-Up" or "Interface/Buttons/UI-MinusButton-Up")
+        tex:SetVertexColor(1, 1, 1)
+    end
+end
+
 -- nagłówek ze strzałką (zwijalny) albo bez
 local function SetHeaderArrow(h, collapsible, collapsed)
     h.collapsible = collapsible
     h.text:ClearAllPoints()
     if collapsible then
-        h.arrow:SetRotation(collapsed and (math.pi / 2) or 0)
+        SetArrow(h.arrow, collapsed)
         h.arrow:Show()
         h.text:SetPoint("LEFT", 14, 0)
     else
@@ -441,23 +471,22 @@ local function GetPlusSlot(i)
     if not p then
         p = CreateFrame("Button", nil, content, "BackdropTemplate")
         p:SetSize(ns.SLOT_SIZE, ns.SLOT_SIZE)
-        SetFlatBackdrop(p, { 1, 1, 1, 0.03 }, { 1, 1, 1, 0.12 })
         p.text = p:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        p.text:SetTextColor(0.5, 0.5, 0.5)
         p.text:SetPoint("CENTER", 0, 1)
         p.text:SetText("+")
+        ns.SkinPlus(p)
         local function drop(self) ns.DropOnCategory(self.catKey) end
         p:SetScript("OnReceiveDrag", drop)
         p:SetScript("OnClick", function(self) if CursorHasItem() then drop(self) end end)
         p:SetScript("OnEnter", function(self)
-            self:SetBackdropBorderColor(1, 1, 1, 0.4)
+            ns.SkinPlus(self, true)
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             GameTooltip:SetText("Drop an item here")
             GameTooltip:AddLine("All items of this kind will go to " .. ns.CATEGORY_BY_KEY[self.catKey].label .. ".", 0.8, 0.8, 0.8, true)
             GameTooltip:Show()
         end)
         p:SetScript("OnLeave", function(self)
-            self:SetBackdropBorderColor(1, 1, 1, 0.12)
+            ns.SkinPlus(self, false)
             GameTooltip:Hide()
         end)
         plusSlots[i] = p
@@ -468,6 +497,13 @@ end
 ---------------------------------------------------------------------------
 -- Stopka
 ---------------------------------------------------------------------------
+-- osobny pasek stopki: ciemniejsze tło + kreska u góry (położenie i kolory ustawia motyw)
+local footerBg = frame:CreateTexture(nil, "BACKGROUND", nil, 2)
+local footerLine = frame:CreateTexture(nil, "ARTWORK")
+footerLine:SetHeight(1)
+footerLine:SetPoint("BOTTOMLEFT", footerBg, "TOPLEFT")
+footerLine:SetPoint("BOTTOMRIGHT", footerBg, "TOPRIGHT")
+
 local money = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 money:SetPoint("BOTTOMRIGHT", -PAD, 9)
 
@@ -726,9 +762,19 @@ local function RefreshInner()
             local collapsible = s.catKey ~= nil and view == "all"
             local collapsed = collapsible and PopokiBagDB.collapsed[s.catKey]
             SetHeaderArrow(h, collapsible, collapsed)
-            local canSell = s.catKey == "vendor" and ns.merchantOpen
-            h.sell:SetShown(canSell and true or false)
-            h.line:SetPoint("RIGHT", canSell and -54 or 0, 0)
+            local action
+            if s.catKey == "vendor" and ns.merchantOpen then
+                action = "sell"
+            elseif view == "bags" and hdrIdx == 2 then   -- pierwszy nagłówek w widoku Bags
+                action = "sort"
+            end
+            h.sell.action = action
+            if action then
+                h.sell.text:SetText(action == "sort" and (ns.compacting and "Sorting..." or "Sort bags") or "Sell")
+                h.sell:SetWidth(math.max(46, h.sell.text:GetStringWidth() + 18))
+            end
+            h.sell:SetShown(action and true or false)
+            h.line:SetPoint("RIGHT", action and -(h.sell:GetWidth() + 8) or 0, 0)
             h:Show()
             y = y + SECTION_H + 2
 
@@ -812,3 +858,161 @@ end)
 function ns.Open() if not frame:IsShown() then frame:Show() end end
 function ns.Close() frame:Hide() end
 function ns.Toggle() if frame:IsShown() then frame:Hide() else frame:Show() end end
+
+---------------------------------------------------------------------------
+-- Motyw okna (Theme.lua): Dark = płaskie tło, Blizzard = ramka okien gry na "rock"
+---------------------------------------------------------------------------
+local chrome   -- nil = jeszcze nie próbowano, false = klient nie ma ramki Blizzarda
+local GOLD_DIALOG = {
+    bgFile = "Interface/DialogFrame/UI-DialogBox-Background-Dark",
+    edgeFile = "Interface/DialogFrame/UI-DialogBox-Gold-Border",
+    tile = true, tileSize = 32, edgeSize = 24,
+    insets = { left = 6, right = 6, top = 6, bottom = 6 },
+}
+
+local function BlizzardChrome()
+    if chrome ~= nil then return chrome end
+    chrome = false
+    local util = NineSliceUtil
+    local layout = "ButtonFrameTemplateNoPortrait"
+    if not (util and util.GetLayout and util.ApplyLayoutByName and util.GetLayout(layout)) then return chrome end
+    local ok, nine = pcall(CreateFrame, "Frame", nil, frame, "NineSlicePanelTemplate")
+    if not (ok and nine and pcall(util.ApplyLayoutByName, nine, layout)) then return chrome end
+    nine:SetAllPoints()
+    nine:SetFrameLevel(frame:GetFrameLevel())
+    -- pełne, nieprzezroczyste podłoże pod kamieniem (sama tekstura kamienia prześwituje)
+    local base = frame:CreateTexture(nil, "BACKGROUND", nil, -1)
+    base:SetPoint("TOPLEFT", 6, -21)
+    base:SetPoint("BOTTOMRIGHT", -2, 3)
+    base:SetColorTexture(0.07, 0.065, 0.06, 1)
+    local bg = frame:CreateTexture(nil, "BACKGROUND")
+    bg:SetPoint("TOPLEFT", 6, -21)
+    bg:SetPoint("BOTTOMRIGHT", -2, 3)
+    if bg:SetTexture("Interface/FrameGeneral/UI-Background-Rock", "REPEAT", "REPEAT") == false then
+        bg:SetColorTexture(0.1, 0.09, 0.08, 1)
+    end
+    bg:SetHorizTile(true)
+    bg:SetVertTile(true)
+    local shade = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
+    shade:SetAllPoints(bg)
+    shade:SetColorTexture(0, 0, 0, 0.45)   -- przyciemniony kamień, żeby drobny tekst był czytelny
+    chrome = { nine = nine, bg = bg, shade = shade, base = base }
+    return chrome
+end
+
+local function ShowChrome(on)
+    if not chrome then return end
+    chrome.nine:SetShown(on)
+    chrome.bg:SetShown(on)
+    chrome.shade:SetShown(on)
+    chrome.base:SetShown(on)
+end
+
+ns.OnThemeChange(function()
+    local t = ns.Theme()
+    local blizz = ns.ThemeKey() == "blizzard"
+    for i = 1, 3 do
+        ACCENT[i] = t.accent[i]
+        DIM_TEXT[i] = t.dim[i]
+    end
+
+    -- tło i ramka
+    local nine = blizz and BlizzardChrome()
+    if blizz then
+        if nine then
+            frame:SetBackdrop(nil)
+            ShowChrome(true)
+        else
+            frame:SetBackdrop(GOLD_DIALOG)   -- zapas, gdyby klient nie miał nine-slice
+            frame:SetBackdropBorderColor(1, 1, 1, 1)
+        end
+    else
+        ShowChrome(false)
+        SetFlatBackdrop(frame, BG, EDGE)
+    end
+
+    -- nagłówek: przy ramce Blizzarda tytuł w pasku tytułu, reszta rząd niżej
+    title:ClearAllPoints()
+    slotsText:ClearAllPoints()
+    search:ClearAllPoints()
+    close:ClearAllPoints()
+    -- top = gdzie kończy się nagłówek (lewy pasek i zawartość zaczynają się niżej)
+    local top
+    if blizz and nine then
+        top = 52
+        title:SetFontObject("GameFontNormal")
+        title:SetPoint("TOP", 0, -4)
+        slotsText:SetPoint("LEFT", frame, "TOPLEFT", PAD + 8, -36)   -- środek rzędu z wyszukiwarką
+        search:SetPoint("TOPRIGHT", -14, -26)
+        close:SetPoint("TOPRIGHT", 1, 0)
+    else
+        top = HEADER_H
+        title:SetFontObject("GameFontNormalLarge")
+        -- jeden rząd: tytuł, licznik, przyciski, wyszukiwarka, zębatka i X na wspólnym środku (-20)
+        title:SetPoint("LEFT", frame, "TOPLEFT", PAD + 4, -20)
+        slotsText:SetPoint("LEFT", title, "RIGHT", 10, 0)
+        search:SetPoint("RIGHT", frame, "TOPRIGHT", -60, -20)   -- miejsce na zębatkę i X
+        close:SetPoint("CENTER", frame, "TOPRIGHT", -18, -20)
+    end
+    scroll:ClearAllPoints()
+    scroll:SetPoint("TOPLEFT", SIDEBAR_W + PAD + (blizz and 6 or 1), -top - 4)
+    scroll:SetPoint("BOTTOMRIGHT", -PAD, FOOTER_H + 4)
+    title:SetTextColor(unpack(t.title))
+    slotsText:SetTextColor(unpack(DIM_TEXT))
+
+    -- lewy pasek
+    sidebar:ClearAllPoints()
+    if blizz then
+        sidebar:SetPoint("TOPLEFT", 6, -top)
+        sidebar:SetPoint("BOTTOMLEFT", 6, FOOTER_H)
+        SetFlatBackdrop(sidebar, { 0.03, 0.03, 0.03, 0.75 }, { 0.55, 0.45, 0.25, 0.6 })
+    else
+        sidebar:SetPoint("TOPLEFT", 1, -HEADER_H)
+        sidebar:SetPoint("BOTTOMLEFT", 1, FOOTER_H)
+        SetFlatBackdrop(sidebar, { 0.04, 0.04, 0.05, 0.9 }, { 0, 0, 0, 0 })
+    end
+    sideHeader:SetTextColor(unpack(DIM_TEXT))
+    editBtn.text:SetTextColor(unpack(editMode and ACCENT or DIM_TEXT))
+    for _, b in ipairs(sideButtons) do
+        b.sel:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 0.18)
+        b.bar:SetColorTexture(unpack(ACCENT))
+        b.count:SetTextColor(unpack(DIM_TEXT))
+    end
+    useMe.line:SetColorTexture(unpack(t.line))
+    useMe.title:SetTextColor(unpack(DIM_TEXT))
+    useMe.more:SetTextColor(unpack(DIM_TEXT))
+
+    -- sekcje
+    for _, h in ipairs(headers) do
+        h.text:SetTextColor(unpack(t.header))
+        h.line:SetColorTexture(unpack(t.line))
+        ns.SkinButton(h.sell)
+    end
+    for _, p in ipairs(plusSlots) do ns.SkinPlus(p) end
+
+    -- stopka: pasek oddzielony od zawartości jak nagłówek
+    footerBg:ClearAllPoints()
+    hint:ClearAllPoints()
+    money:ClearAllPoints()
+    if blizz and nine then
+        footerBg:SetPoint("BOTTOMLEFT", 6, 3)
+        footerBg:SetPoint("BOTTOMRIGHT", -3, 3)
+        footerBg:SetHeight(FOOTER_H - 3)
+        footerBg:SetColorTexture(0, 0, 0, 0.5)
+        footerLine:SetColorTexture(1, 0.82, 0, 0.3)
+        hint:SetPoint("BOTTOMLEFT", PAD + 8, 10)
+        money:SetPoint("BOTTOMRIGHT", -PAD - 4, 10)
+    else
+        footerBg:SetPoint("BOTTOMLEFT", 1, 1)
+        footerBg:SetPoint("BOTTOMRIGHT", -1, 1)
+        footerBg:SetHeight(FOOTER_H - 1)
+        footerBg:SetColorTexture(0, 0, 0, 0.3)
+        footerLine:SetColorTexture(1, 1, 1, 0.08)
+        hint:SetPoint("BOTTOMLEFT", PAD + 4, 9)
+        money:SetPoint("BOTTOMRIGHT", -PAD, 9)
+    end
+    earnings:SetTextColor(unpack(DIM_TEXT))
+    hint:SetTextColor(unpack(DIM_TEXT))
+end)
+
+ns.On("PLAYER_LOGIN", ns.ApplyTheme)

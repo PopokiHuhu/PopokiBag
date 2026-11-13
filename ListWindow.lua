@@ -84,7 +84,7 @@ function ns.CreateItemListWindow(opts)
             if prevTab then
                 b:SetPoint("RIGHT", prevTab, "LEFT", -12, 0)
             else
-                b:SetPoint("TOPRIGHT", -14, -14)
+                b:SetPoint("TOPRIGHT", -14, self.framed and -26 or -14)   -- pod paskiem tytułu ramki Blizzarda
             end
             b.key, b.label = t.key, t.label
             b.text:SetText(t.label)
@@ -113,11 +113,13 @@ function ns.CreateItemListWindow(opts)
         if opts.onTab then opts.onTab(self, key) end
     end
 
+    local colLabels = {}
     local function ColumnLabel(text, point, x)
         local fs = win:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         fs:SetPoint(point, win, "TOPLEFT", x, -58)
         fs:SetTextColor(unpack(DIM_TEXT))
         fs:SetText(text)
+        colLabels[#colLabels + 1] = fs
     end
     ColumnLabel("Item", "TOPLEFT", 14)
     ColumnLabel("Vendor", "TOPRIGHT", COL_VENDOR_R)
@@ -196,9 +198,11 @@ function ns.CreateItemListWindow(opts)
         else
             b:SetPoint("BOTTOMRIGHT", -12, 12)
         end
-        FlatHover(b)
         b.text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         b.text:SetPoint("CENTER")
+        ns.SkinButton(b)
+        b:SetScript("OnEnter", function(self) ns.SkinButton(self, true) end)
+        b:SetScript("OnLeave", function(self) ns.SkinButton(self, false) end)
         function b:SetLabel(text)
             self.text:SetText(text)
             self:SetWidth(math.max(80, self.text:GetStringWidth() + 24))
@@ -248,6 +252,33 @@ function ns.CreateItemListWindow(opts)
         self:SetHeight(74 + visible * ROW_H + 76)
         summary:SetText(opts.summary(self))
     end
+
+    -- motyw (Theme.lua): tło, tytuł, kolory akcentu, przyciski
+    ns.SkinWindow(win, {
+        title = title, titleX = 14,
+        onApply = function(_, framed)
+            win.framed = framed
+            if win.tabButtons then
+                local first
+                for _, b in ipairs(tabPool) do if b:IsShown() and not first then first = b end end
+                if first then first:ClearAllPoints() first:SetPoint("TOPRIGHT", -14, framed and -26 or -14) end
+            end
+            local t = ns.Theme()
+            for i = 1, 3 do
+                ACCENT[i] = t.accent[i]
+                DIM_TEXT[i] = t.dim[i]
+            end
+            hint:SetTextColor(unpack(DIM_TEXT))
+            for _, fs in ipairs(colLabels) do fs:SetTextColor(unpack(DIM_TEXT)) end
+            for _, b in ipairs(tabPool) do
+                b.line:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+                local on = b.key == win.tab
+                b.text:SetTextColor(on and 1 or DIM_TEXT[1], on and 1 or DIM_TEXT[2], on and 1 or DIM_TEXT[3])
+            end
+            for _, b in pairs(win.buttons) do ns.SkinButton(b) end
+            if win:IsShown() then win:Render() end
+        end,
+    })
 
     return win
 end
