@@ -79,11 +79,22 @@ local function RealValue(vendor, ah)
     return vendor
 end
 
+-- Czy wyrzucenie przedmiotu zwolni zwykły slot: amunicja i wszystko z kołczanu, torby na
+-- reagenty itp. nie pomoże, bo w takie torby nie włożysz zwykłych przedmiotów.
+local BAG_REAGENT = 5   -- torba na reagenty
+local function FreesNormalSlot(item)
+    if item.classID == 6 then return false end   -- amunicja (strzały, kule)
+    if item.bag == BAG_REAGENT then return false end
+    local _, family = C_Container.GetContainerNumFreeSlots(item.bag)
+    return not family or family == 0
+end
+
 local function Candidates()
     local list = {}
     for _, item in ipairs(ns.Scan()) do
         ns.Classify(item)
-        if not SAFE[item.cat] and not item.isQuest and not item.randomSuffix and not item.info.isLocked then
+        if not SAFE[item.cat] and not item.isQuest and not item.randomSuffix and not item.info.isLocked
+            and FreesNormalSlot(item) then
             local e = ns.ListEntry(item)
             e.real = RealValue(e.value, e.ah)
             if e.real > 0 then list[#list + 1] = e end
@@ -143,9 +154,29 @@ end
 
 local function Reload(w)
     w.list = Candidates()
+    -- przy lootcie: zielone = tańsze niż to, co podnosisz (warto zamienić), reszta przygaszona
+    for _, e in ipairs(w.list) do
+        e.good, e.dim = nil, nil
+        if target and target.quest then
+            e.good = true
+        elseif target and target.value > 0 then
+            e.good = e.real < target.value
+            e.dim = not e.good
+        end
+    end
     w.hintText:SetText(Verdict(w.list))
     w:Render()
 end
+
+-- loot się zmienił albo zamknął: odśwież werdykt i podświetlenie, jeśli okno jest otwarte
+local function LootChanged()
+    if not win or not win:IsShown() then return end
+    target = LootTarget()
+    Reload(win)
+end
+ns.On("LOOT_OPENED", function() C_Timer.After(0, LootChanged) end)
+ns.On("LOOT_SLOT_CLEARED", function() C_Timer.After(0, LootChanged) end)
+ns.On("LOOT_CLOSED", function() C_Timer.After(0, LootChanged) end)
 
 local function Destroy(w, e)
     local info = C_Container.GetContainerItemInfo(e.bag, e.slot)
@@ -199,6 +230,7 @@ win = ns.CreateItemListWindow({
 win.hintText:SetPoint("RIGHT", win, "RIGHT", -14, 0)
 win.hintText:SetJustifyH("LEFT")
 win.hintText:SetWordWrap(false)
+win.hintText:SetFontObject("GameFontHighlight")   -- werdykt ma być dobrze widoczny
 ns.RegisterSideWindow(win)
 
 local function OpenRoom()

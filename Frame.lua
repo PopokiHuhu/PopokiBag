@@ -514,6 +514,46 @@ earnings:SetPoint("BOTTOM", frame, "BOTTOM", 0, 10)
 earnings:SetTextColor(unpack(DIM_TEXT))
 local AH_CUT = 0.95
 
+-- Cash-in da się kliknąć: podświetla się na hover, klik pokazuje/chowa tooltip z wyjaśnieniem
+-- i podziałem na For Vendor / For Auction / materiały profesji
+local earningsBtn = CreateFrame("Button", nil, frame)
+earningsBtn:SetPoint("TOPLEFT", earnings, "TOPLEFT", -6, 4)
+earningsBtn:SetPoint("BOTTOMRIGHT", earnings, "BOTTOMRIGHT", 6, -4)
+earningsBtn:SetHighlightTexture("Interface/Buttons/WHITE8x8")
+earningsBtn:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
+earningsBtn:Hide()
+
+local function CashLine(label, n, value, note)
+    local left = label .. "  |cff999999(" .. n .. (n == 1 and " item" or " items") .. ")|r"
+    GameTooltip:AddDoubleLine(left, ns.MoneyText(value), 1, 1, 1, 1, 1, 1)
+    if note then GameTooltip:AddLine(note, 0.6, 0.6, 0.6, true) end
+end
+
+local function ShowCashTooltip(self)
+    local c = ns.cashIn
+    if not c then return end
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText("Cash-in")
+    GameTooltip:AddLine("Roughly what you'd get by selling everything that is meant to be sold.", 0.8, 0.8, 0.8, true)
+    GameTooltip:AddLine(" ")
+    CashLine("For Vendor", c.vendorN, c.vendor, "Vendor price.")
+    CashLine("For Auction", c.auctionN, c.auction,
+        "AH price minus the 5% AH cut" .. (c.guessed > 0 and ("; " .. c.guessed .. " \"of the ...\" item(s) counted at vendor price, so it's likely more.") or "."))
+    CashLine("Profession materials", c.profN, c.prof, "AH or vendor, whichever pays better by your AH threshold.")
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddDoubleLine("Total", ns.MoneyText(c.vendor + c.auction + c.prof), 1, 0.82, 0, 1, 1, 1)
+    GameTooltip:Show()
+end
+
+earningsBtn:SetScript("OnEnter", function() earnings:SetTextColor(1, 1, 1) end)
+earningsBtn:SetScript("OnLeave", function(self)
+    earnings:SetTextColor(unpack(DIM_TEXT))
+    if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
+end)
+earningsBtn:SetScript("OnClick", function(self)
+    if GameTooltip:IsOwned(self) and GameTooltip:IsShown() then GameTooltip:Hide() else ShowCashTooltip(self) end
+end)
+
 local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 hint:SetPoint("BOTTOMLEFT", PAD, 9)
 hint:SetTextColor(unpack(DIM_TEXT))
@@ -709,23 +749,32 @@ local function RefreshInner()
 
     slotsText:SetText((total - free) .. " / " .. total)
     money:SetText(ns.MoneyText(GetMoney()))
-    local est = 0
+    -- podział na trzy części (tooltip po kliknięciu w Cash-in)
+    local cash = { vendor = 0, auction = 0, prof = 0, vendorN = 0, auctionN = 0, profN = 0, guessed = 0 }
     for _, item in ipairs(items) do
         if item.cat == "vendor" then
-            est = est + (item.vendorValue or 0)
+            cash.vendor = cash.vendor + (item.vendorValue or 0)
+            cash.vendorN = cash.vendorN + 1
         elseif item.profSell == "auction" then   -- kategorie profesji: AH albo vendor wg progu
-            est = est + math.floor((ns.AuctionValue(item) or 0) * AH_CUT)
+            cash.prof = cash.prof + math.floor((ns.AuctionValue(item) or 0) * AH_CUT)
+            cash.profN = cash.profN + 1
         elseif item.profSell == "vendor" then
-            est = est + (item.vendorValue or 0)
+            cash.prof = cash.prof + (item.vendorValue or 0)
+            cash.profN = cash.profN + 1
         elseif item.cat == "auction" then
             if item.randomSuffix then
-                est = est + (item.vendorValue or 0)   -- prawdziwej ceny wariantu nie znamy; vendor jako minimum
+                cash.auction = cash.auction + (item.vendorValue or 0)   -- prawdziwej ceny wariantu nie znamy; vendor jako minimum
+                cash.guessed = cash.guessed + 1
             else
-                est = est + math.floor((item.auctionValue or ns.AuctionValue(item) or 0) * AH_CUT)
+                cash.auction = cash.auction + math.floor((item.auctionValue or ns.AuctionValue(item) or 0) * AH_CUT)
             end
+            cash.auctionN = cash.auctionN + 1
         end
     end
+    local est = cash.vendor + cash.auction + cash.prof
+    ns.cashIn = cash
     earnings:SetText(est > 0 and ("Cash-in: |cffffffff" .. ns.MoneyText(est) .. "|r") or "")
+    earningsBtn:SetShown(est > 0)
     if not ns.takeover then
         hint:SetText("EllesmereUIBags is enabled: B opens the old bags")
     elseif ammo > 0 then

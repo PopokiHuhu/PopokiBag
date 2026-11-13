@@ -1,4 +1,4 @@
-POPOKI BAG 1.0.5 - bags sorted into categories for WoW Forever
+POPOKI BAG 1.0.6 - bags sorted into categories for WoW Forever
 ================================================================
 
 Popoki Bag replaces the default bags with its own window where items are already
@@ -46,7 +46,8 @@ Categories (reorder them with the Edit button in the left panel):
   Quest Items  - quest items and items used by RestedXP guides
 
 Ammo isn't in a category - the footer shows how much you have ("Ammo: ...").
-The footer also shows "Cash-in": what you'd get for For Vendor, For Auction and materials.
+The footer also shows "Cash-in": what you'd get for For Vendor, For Auction and materials
+(click it for the breakdown).
 
 
 DRAGGING AND ORDER
@@ -73,7 +74,8 @@ With loot open, the top line says "Worth it" (drop something) or "Not worth it"
 (what you're picking up is worth less than anything on the list).
 Click to select, click again to destroy - and the loot you couldn't take is picked up.
 Never suggested: Quest Items (including RestedXP ones), Essentials, Consumables,
-Misfits, "Use me!", green "of the ..." items and items with no price.
+Misfits, "Use me!", green "of the ..." items, items with no price, ammo and anything
+in a quiver, ammo pouch or reagent bag (dropping those frees no normal slot).
 
 
 NPC WINDOWS (open automatically, can be turned off in settings)

@@ -228,7 +228,8 @@ function ns.CreateItemListWindow(opts)
             else
                 r.ah:SetText(e.ahCheck and "|cff999999check|r" or (e.ah and ns.MoneyText(e.ah)) or "|cff666666-|r")
             end
-            local alpha = e.keep and 0.4 or 1
+            -- e.good = warto (zielony pasek, np. tańsze niż loot w Make room), e.dim = przygaszony
+            local alpha = (e.keep or e.dim) and 0.4 or 1
             r.name:SetAlpha(alpha)
             r.icon:SetAlpha(alpha)
             r.vendor:SetAlpha(alpha)
@@ -239,9 +240,13 @@ function ns.CreateItemListWindow(opts)
             elseif e.selected then
                 r.bg:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 0.12)
                 r.bar:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+            elseif e.good then
+                r.bg:SetColorTexture(0.4, 0.8, 0.6, 0.10)
+                r.bar:SetColorTexture(0.4, 0.8, 0.6, 1)
             end
-            r.bg:SetShown((e.keep or e.selected) and true or false)
-            r.bar:SetShown((e.keep or e.selected) and true or false)
+            local marked = (e.keep or e.selected or e.good) and true or false
+            r.bg:SetShown(marked)
+            r.bar:SetShown(marked)
             r:Show()
         end
         for i = #list + 1, #rows do rows[i]:Hide() end

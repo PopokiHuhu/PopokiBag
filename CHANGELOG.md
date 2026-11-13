@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.6
+
+### New
+- **Cash-in breakdown:** the Cash-in total in the footer is now clickable - it lights up on hover and shows how much comes from For Vendor, For Auction and profession materials.
+- **Make room highlights the swap:** with loot open, items cheaper than what you're picking up are marked green, the rest is dimmed. The verdict is bigger and updates live as the loot changes.
+
+### Changed
+- Make room no longer suggests ammo or anything in a quiver, ammo pouch or reagent bag - dropping those doesn't free a normal slot.
+
 ## 1.0.5
 
 ### New
