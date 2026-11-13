@@ -2,3 +2,4 @@
 .gitattributes export-ignore
 .gitignore export-ignore
 publish.ps1 export-ignore
+CHANGELOG.md export-ignore

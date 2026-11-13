@@ -1,7 +1,9 @@
 ﻿# Publishes a new Popoki Bag version on GitHub (WowUp picks up updates from there).
 # Usage: bump "## Version:" in PopokiBag.toc and PopokiBag_Forever.toc, then:
-#   powershell -ExecutionPolicy Bypass -File publish.ps1 "Short description of changes"
-param([string]$Notes = "")
+#   powershell -ExecutionPolicy Bypass -File publish.ps1 -NotesFile notes.md
+# The notes (Markdown) become the GitHub release body - WowUp shows it in the Changelog tab -
+# and are added on top of CHANGELOG.md in the repository.
+param([string]$Notes = "", [string]$NotesFile = "")
 
 $ErrorActionPreference = "Stop"
 $repo   = $PSScriptRoot
@@ -17,7 +19,15 @@ $version = (Select-String -Path "$repo\PopokiBag.toc" -Pattern '^## Version:\s*(
 $tag = "v$version"
 if (git tag --list $tag) { throw "Version $version is already published - bump '## Version:' in PopokiBag.toc." }
 
-# 3. commit + tag
+# 3. release notes -> top of CHANGELOG.md
+if ($NotesFile) { $Notes = [IO.File]::ReadAllText((Resolve-Path $NotesFile)) }
+if (-not $Notes) { $Notes = "Popoki Bag $version" }
+$changelog = Join-Path $repo "CHANGELOG.md"
+$old = if (Test-Path $changelog) { [IO.File]::ReadAllText($changelog) -replace '^# Changelog\s*', '' } else { "" }
+$entry = "## $version`n`n" + $Notes.Trim() + "`n`n"
+[IO.File]::WriteAllText($changelog, "# Changelog`n`n" + $entry + $old, (New-Object Text.UTF8Encoding $false))
+
+# 4. commit + tag
 git add -A
 git diff --cached --quiet
 if ($LASTEXITCODE -ne 0) {
@@ -25,14 +35,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 git tag $tag
 
-# 4. zip with a PopokiBag/ folder inside (git archive = forward slashes, which WowUp expects)
+# 5. zip with a PopokiBag/ folder inside (git archive = forward slashes, which WowUp expects)
 $zip = Join-Path $repo "PopokiBag-$version.zip"
 git archive --format=zip --prefix=PopokiBag/ -o $zip $tag
 Copy-Item $zip "$env:USERPROFILE\Desktop\" -Force
 
-# 5. push and release
+# 6. push and release
 git push -q origin HEAD
 git push -q origin $tag
-if (-not $Notes) { $Notes = "Popoki Bag $version" }
-& "C:\Program Files\GitHub CLI\gh.exe" release create $tag $zip --title "Popoki Bag $version" --notes $Notes
+$notesTmp = Join-Path $env:TEMP "popokibag-notes.md"
+[IO.File]::WriteAllText($notesTmp, $Notes, (New-Object Text.UTF8Encoding $false))
+& "C:\Program Files\GitHub CLI\gh.exe" release create $tag $zip --title "Popoki Bag $version" --notes-file $notesTmp
 Write-Host "Published $tag"
