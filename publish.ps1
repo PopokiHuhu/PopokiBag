@@ -1,4 +1,4 @@
-# Publikacja nowej wersji Popoki Bag na GitHubie (WowUp pobiera stamtąd aktualizacje).
+﻿# Publikacja nowej wersji Popoki Bag na GitHubie (WowUp pobiera stamtąd aktualizacje).
 # Użycie: najpierw podbij "## Version:" w PopokiBag.toc, potem:
 #   powershell -ExecutionPolicy Bypass -File publish.ps1 "Krótki opis zmian"
 param([string]$Notes = "")
@@ -34,5 +34,5 @@ Copy-Item $zip "$env:USERPROFILE\Desktop\" -Force
 git push -q origin HEAD
 git push -q origin $tag
 if (-not $Notes) { $Notes = "Popoki Bag $version" }
-gh release create $tag $zip --title "Popoki Bag $version" --notes $Notes
+& "C:\Program Files\GitHub CLI\gh.exe" release create $tag $zip --title "Popoki Bag $version" --notes $Notes
 Write-Host "Opublikowano $tag"
