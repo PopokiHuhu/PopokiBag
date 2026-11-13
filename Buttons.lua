@@ -12,10 +12,11 @@ local POOL_START = 160   -- więcej niż maksymalna liczba slotów plecaka
 local pool = {}
 
 -- Dzielenie stosów (Shift+klik): w widoku kategorii nie ma pustych slotów, więc odłożona
--- połowa od razu trafia do pierwszego wolnego miejsca, które ją przyjmie
+-- część od razu trafia do pierwszego wolnego miejsca, które ją przyjmie
 -- (kołczan tylko strzały, torba na reagenty tylko reagenty - jak w Ellesmere BagRoom).
--- Torbę i slot zapamiętujemy przy otwarciu okienka podziału, bo odświeżenie plecaka
--- w międzyczasie może przypiąć ten przycisk do innego przedmiotu.
+-- Łapiemy samo C_Container.SplitContainerItem (niezależnie od tego, jak okienko Blizzarda
+-- je wywoła), ale tylko gdy okienko podziału otworzył nasz slot - przy banku/poczcie
+-- Blizzarda zostawiamy przedmiot na kursorze.
 local REAGENT_BAG = 5
 
 local function FindFreeSlot(itemID)
@@ -37,36 +38,56 @@ local function FindFreeSlot(itemID)
     end
 end
 
-local function SplitAndPlace(btn, split)
-    local bag, slot, id = btn.splitBag, btn.splitSlot, btn.splitID
-    btn.splitBag, btn.splitSlot, btn.splitID = nil, nil, nil
-    if not bag then bag, slot = btn:GetParent():GetID(), btn:GetID() end
-    local now = C_Container.GetContainerItemID(bag, slot)
-    if not now or (id and now ~= id) then return end
-    C_Container.SplitContainerItem(bag, slot, split)
-    C_Timer.After(0.05, function()
-        local kind, cursorID = GetCursorInfo()
-        if kind ~= "item" or cursorID ~= now then return end
-        local b, s = FindFreeSlot(now)
-        if b then
-            C_Container.PickupContainerItem(b, s)
-        else
-            ns.Print("No free bag slot - the split stack is on your cursor.")
-        end
+local splitFromUs = 0      -- GetTime() otwarcia okienka podziału przez nasz slot
+local pending              -- { id, untilTime } - czekamy, aż część wyląduje na kursorze
+
+local function TryPlace()
+    if not pending then return end
+    if GetTime() > pending.untilTime then pending = nil return end
+    local kind, cursorID = GetCursorInfo()
+    if kind ~= "item" or cursorID ~= pending.id then return end
+    local id = pending.id
+    pending = nil
+    local b, s = FindFreeSlot(id)
+    if b then
+        C_Container.PickupContainerItem(b, s)
+    else
+        ns.Print("No free bag slot - the split stack is on your cursor.")
+    end
+end
+
+if StackSplitFrame and StackSplitFrame.OpenStackSplitFrame then
+    hooksecurefunc(StackSplitFrame, "OpenStackSplitFrame", function(_, _, owner)
+        splitFromUs = (owner and owner.popokiSlot) and GetTime() or 0
+    end)
+elseif OpenStackSplitFrame then
+    hooksecurefunc("OpenStackSplitFrame", function(_, owner)
+        splitFromUs = (owner and owner.popokiSlot) and GetTime() or 0
     end)
 end
 
-local function RememberSplitSource(owner)
-    if owner and owner.popokiSlot then
-        owner.splitBag, owner.splitSlot = owner:GetParent():GetID(), owner:GetID()
-        owner.splitID = C_Container.GetContainerItemID(owner.splitBag, owner.splitSlot)
+-- przy banku, poczcie, handlu i AH część zostaje na kursorze (pewnie chcesz ją tam włożyć)
+local function ElsewhereOpen()
+    for _, name in ipairs({ "BankFrame", "MailFrame", "TradeFrame", "AuctionHouseFrame", "GuildBankFrame" }) do
+        local f = _G[name]
+        if f and f:IsShown() then return true end
     end
 end
-if StackSplitFrame and StackSplitFrame.OpenStackSplitFrame then
-    hooksecurefunc(StackSplitFrame, "OpenStackSplitFrame", function(_, _, owner) RememberSplitSource(owner) end)
-elseif OpenStackSplitFrame then
-    hooksecurefunc("OpenStackSplitFrame", function(_, owner) RememberSplitSource(owner) end)
-end
+
+hooksecurefunc(C_Container, "SplitContainerItem", function(bag, slot)
+    local owner = StackSplitFrame and StackSplitFrame.owner
+    local ours = (splitFromUs > 0 and GetTime() - splitFromUs < 120)
+        or (owner and owner.popokiSlot)
+        or (ns.frame and ns.frame:IsShown())
+    splitFromUs = 0
+    if not ours or ElsewhereOpen() then return end
+    local id = C_Container.GetContainerItemID(bag, slot)
+    if not id then return end
+    pending = { id = id, untilTime = GetTime() + 2 }
+    for _, d in ipairs({ 0, 0.1, 0.3, 0.6, 1 }) do C_Timer.After(d, TryPlace) end
+end)
+
+ns.On("CURSOR_CHANGED", function() C_Timer.After(0, TryPlace) end)
 
 local function NewSlot(container)
     local parent = CreateFrame("Frame", nil, container)
@@ -76,7 +97,6 @@ local function NewSlot(container)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     btn:RegisterForDrag("LeftButton")
     btn.popokiSlot = true
-    btn.SplitStack = SplitAndPlace
     parent.btn = btn
     parent:Hide()
     return parent

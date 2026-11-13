@@ -1,4 +1,4 @@
-POPOKI BAG 1.0.2 - plecak z kategoriami dla WoW Forever
+POPOKI BAG 1.0.3 - plecak z kategoriami dla WoW Forever
 =========================================================
 
 Popoki Bag zastępuje zwykły plecak własnym oknem, w którym przedmioty są od razu
