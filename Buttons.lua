@@ -11,6 +11,63 @@ ns.SLOT_GAP = 4
 local POOL_START = 160   -- więcej niż maksymalna liczba slotów plecaka
 local pool = {}
 
+-- Dzielenie stosów (Shift+klik): w widoku kategorii nie ma pustych slotów, więc odłożona
+-- połowa od razu trafia do pierwszego wolnego miejsca, które ją przyjmie
+-- (kołczan tylko strzały, torba na reagenty tylko reagenty - jak w Ellesmere BagRoom).
+-- Torbę i slot zapamiętujemy przy otwarciu okienka podziału, bo odświeżenie plecaka
+-- w międzyczasie może przypiąć ten przycisk do innego przedmiotu.
+local REAGENT_BAG = 5
+
+local function FindFreeSlot(itemID)
+    local family = C_Item.GetItemFamily(itemID) or 0
+    local isReagent = select(17, ns.GetItemInfo(itemID))
+    for bag = ns.FIRST_BAG, ns.LAST_BAG do
+        local fits
+        if bag == REAGENT_BAG then
+            fits = isReagent
+        else
+            local _, bagFamily = C_Container.GetContainerNumFreeSlots(bag)
+            fits = not bagFamily or bagFamily == 0 or bit.band(bagFamily, family) ~= 0
+        end
+        if fits then
+            for slot = 1, C_Container.GetContainerNumSlots(bag) do
+                if not C_Container.GetContainerItemID(bag, slot) then return bag, slot end
+            end
+        end
+    end
+end
+
+local function SplitAndPlace(btn, split)
+    local bag, slot, id = btn.splitBag, btn.splitSlot, btn.splitID
+    btn.splitBag, btn.splitSlot, btn.splitID = nil, nil, nil
+    if not bag then bag, slot = btn:GetParent():GetID(), btn:GetID() end
+    local now = C_Container.GetContainerItemID(bag, slot)
+    if not now or (id and now ~= id) then return end
+    C_Container.SplitContainerItem(bag, slot, split)
+    C_Timer.After(0.05, function()
+        local kind, cursorID = GetCursorInfo()
+        if kind ~= "item" or cursorID ~= now then return end
+        local b, s = FindFreeSlot(now)
+        if b then
+            C_Container.PickupContainerItem(b, s)
+        else
+            ns.Print("No free bag slot - the split stack is on your cursor.")
+        end
+    end)
+end
+
+local function RememberSplitSource(owner)
+    if owner and owner.popokiSlot then
+        owner.splitBag, owner.splitSlot = owner:GetParent():GetID(), owner:GetID()
+        owner.splitID = C_Container.GetContainerItemID(owner.splitBag, owner.splitSlot)
+    end
+end
+if StackSplitFrame and StackSplitFrame.OpenStackSplitFrame then
+    hooksecurefunc(StackSplitFrame, "OpenStackSplitFrame", function(_, _, owner) RememberSplitSource(owner) end)
+elseif OpenStackSplitFrame then
+    hooksecurefunc("OpenStackSplitFrame", function(_, owner) RememberSplitSource(owner) end)
+end
+
 local function NewSlot(container)
     local parent = CreateFrame("Frame", nil, container)
     parent:SetSize(ns.SLOT_SIZE, ns.SLOT_SIZE)
@@ -18,6 +75,8 @@ local function NewSlot(container)
     btn:SetAllPoints(parent)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     btn:RegisterForDrag("LeftButton")
+    btn.popokiSlot = true
+    btn.SplitStack = SplitAndPlace
     parent.btn = btn
     parent:Hide()
     return parent
