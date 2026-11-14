@@ -221,6 +221,7 @@ function ns.CreateItemListWindow(opts)
             r.icon:SetTexture(e.icon)
             local name = e.link or e.name or ("item " .. e.id)
             if e.count > 1 then name = name .. " |cff999999x" .. e.count .. "|r" end
+            if e.useme then name = name .. " |cff66bbff(use it)|r" end   -- Make room: użyj zamiast niszczyć
             r.name:SetText(name)
             r.vendor:SetText(ns.MoneyText(e.value))
             if e.live then
@@ -240,11 +241,14 @@ function ns.CreateItemListWindow(opts)
             elseif e.selected then
                 r.bg:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 0.12)
                 r.bar:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+            elseif e.useme then
+                r.bg:SetColorTexture(0.4, 0.7, 1, 0.10)
+                r.bar:SetColorTexture(0.4, 0.7, 1, 1)
             elseif e.good then
                 r.bg:SetColorTexture(0.4, 0.8, 0.6, 0.10)
                 r.bar:SetColorTexture(0.4, 0.8, 0.6, 1)
             end
-            local marked = (e.keep or e.selected or e.good) and true or false
+            local marked = (e.keep or e.selected or e.good or e.useme) and true or false
             r.bg:SetShown(marked)
             r.bar:SetShown(marked)
             r:Show()

@@ -102,6 +102,18 @@ local function Candidates()
     end
     table.sort(list, function(a, b) return a.real < b.real end)
     for i = #list, MAX_CANDIDATES + 1, -1 do list[i] = nil end
+    -- na górze rzeczy z "Use me!": użycie (receptura, start questa, założenie torby, otwarcie)
+    -- też zwalnia slot, a niczego nie niszczy. Klik ich nie niszczy - używasz ich w plecaku.
+    local useme = {}
+    for _, item in ipairs(ns.Scan()) do
+        ns.Classify(item)
+        if item.cat == "useme" then
+            local e = ns.ListEntry(item)
+            e.useme, e.reason = true, item.reason
+            useme[#useme + 1] = e
+        end
+    end
+    for i = #useme, 1, -1 do table.insert(list, 1, useme[i]) end
     return list
 end
 
@@ -134,7 +146,8 @@ local target   -- wynik LootTarget() z chwili otwarcia okna
 local win
 
 local function Verdict(list)
-    local cheapest = list[1]
+    local cheapest   -- najtańsza rzecz do zniszczenia (bez pozycji z "Use me!")
+    for _, e in ipairs(list) do if not e.useme then cheapest = e break end end
     if not target then
         if not cheapest then return "Bags are full and nothing here is safe to suggest." end
         return "Bags are full. Cheapest things you carry:"
@@ -157,7 +170,9 @@ local function Reload(w)
     -- przy lootcie: zielone = tańsze niż to, co podnosisz (warto zamienić), reszta przygaszona
     for _, e in ipairs(w.list) do
         e.good, e.dim = nil, nil
-        if target and target.quest then
+        if e.useme then
+            -- "Use me!" ma własne oznaczenie (niebieski pasek), bez porównania z lootem
+        elseif target and target.quest then
             e.good = true
         elseif target and target.value > 0 then
             e.good = e.real < target.value
@@ -206,6 +221,10 @@ win = ns.CreateItemListWindow({
     onLeft = function(w, index)
         local e = w.list[index]
         if not e then return end
+        if e.useme then
+            ns.Print((e.link or e.name or "Item") .. ": use it from your bags (right-click) to free a slot.")
+            return
+        end
         if e.selected then return Destroy(w, e) end
         for _, x in ipairs(w.list) do x.selected = nil end
         e.selected = true
@@ -333,4 +352,56 @@ function ns.CompactBags()
         C_Timer.After(0.12, step)
     end
     step()
+end
+
+---------------------------------------------------------------------------
+-- 4) Cleanup: porządkuje kolejność WEWNĄTRZ każdej kategorii według rodzaju przedmiotu
+--    (np. Consumables: jedzenie, picie, mikstury, eliksiry, flaszki, scrolle, bandaże...).
+--    Niczego nie przenosi w torbach - zmienia tylko Twoją kolejność (PopokiBagCharDB.order),
+--    tę samą, którą ustawiasz przeciąganiem. Nowe przedmioty dalej wskakują na początek sekcji.
+---------------------------------------------------------------------------
+local CONSUMABLE_CLASS = 0
+-- podklasy Consumables w kolejności wyświetlania (jedzenie i picie rozdzielamy niżej)
+local CONSUMABLE_ORDER = { [5] = 1, [1] = 3, [2] = 4, [3] = 5, [4] = 6, [7] = 7, [6] = 8, [0] = 9, [8] = 10 }
+
+-- jedzenie przed piciem: zaklęcie użycia to "Food" / "Drink" / "Refreshment"
+local function FoodOrDrink(id)
+    local getSpell = (C_Item and C_Item.GetItemSpell) or GetItemSpell
+    local spell = getSpell and getSpell(id)
+    if spell == "Drink" then return 2 end
+    return 1
+end
+
+local function CleanupKey(id)
+    local name, _, quality, itemLevel, _, _, _, _, _, _, _, classID, subClassID = ns.GetItemInfo(id)
+    local group
+    if classID == CONSUMABLE_CLASS then
+        group = CONSUMABLE_ORDER[subClassID] or 11
+        if subClassID == 5 then group = FoodOrDrink(id) end
+    else
+        group = (subClassID or 0) + 1
+    end
+    return { class = classID or 99, group = group, level = itemLevel or 0, quality = quality or 0, name = name or "" }
+end
+
+function ns.CleanupOrder()
+    local ids, seen = {}, {}
+    for _, item in ipairs(ns.Scan()) do
+        local id = item.info.itemID
+        if not seen[id] then
+            seen[id] = true
+            ids[#ids + 1] = { id = id, key = CleanupKey(id) }
+        end
+    end
+    table.sort(ids, function(a, b)
+        local x, y = a.key, b.key
+        if x.class ~= y.class then return x.class < y.class end
+        if x.group ~= y.group then return x.group < y.group end
+        if x.level ~= y.level then return x.level > y.level end      -- lepsze (wyższy poziom) wyżej
+        if x.quality ~= y.quality then return x.quality > y.quality end
+        return x.name < y.name
+    end)
+    for i, e in ipairs(ids) do PopokiBagCharDB.order[e.id] = i end
+    ns.Print("Cleanup: items in each category are now ordered by type.")
+    ns.RequestRefresh()
 end

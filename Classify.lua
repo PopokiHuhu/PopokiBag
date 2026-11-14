@@ -365,6 +365,62 @@ local function IsLockedBox(item)
     return locked
 end
 
+-- Przedmiot tylko dla innych klas: tooltip ma linijkę "Classes: Mage" (ITEM_CLASSES_ALLOWED),
+-- a Twojej klasy na niej nie ma. Zwraca listę klas z tooltipa albo nil.
+local function OtherClassOnly(item)
+    local fmt = ITEM_CLASSES_ALLOWED or "Classes: %s"
+    local pattern = "^" .. fmt:gsub("%%s", "(.+)")
+    local myClass = UnitClass("player")
+    if not myClass then return nil end
+    boostTip = boostTip or CreateFrame("GameTooltip", "PopokiBagBoostTip", UIParent, "GameTooltipTemplate")
+    boostTip:SetOwner(UIParent, "ANCHOR_NONE")
+    boostTip:SetBagItem(item.bag, item.slot)
+    local classes
+    for i = 2, boostTip:NumLines() do
+        local fs = _G["PopokiBagBoostTipTextLeft" .. i]
+        local text = fs and fs:GetText()
+        classes = text and text:match(pattern)
+        if classes then break end
+    end
+    boostTip:Hide()
+    if classes and not classes:find(myClass, 1, true) then return classes end
+    return nil
+end
+
+-- Torby nigdy nie idą na sprzedaż (łatwo przegapić ważną rzecz):
+--   zwykła torba większa od najmniejszej założonej albo wolne miejsce na torbę -> "Use me!" (załóż ją),
+--   reszta toreb, kołczany, ładownice i torby profesji -> Essentials.
+local function BagSlots(item)
+    boostTip = boostTip or CreateFrame("GameTooltip", "PopokiBagBoostTip", UIParent, "GameTooltipTemplate")
+    boostTip:SetOwner(UIParent, "ANCHOR_NONE")
+    boostTip:SetBagItem(item.bag, item.slot)
+    local slots
+    for i = 2, boostTip:NumLines() do
+        local fs = _G["PopokiBagBoostTipTextLeft" .. i]
+        local text = fs and fs:GetText()
+        slots = text and tonumber(text:match("^(%d+) Slot"))
+        if slots then break end
+    end
+    boostTip:Hide()
+    return slots
+end
+
+local function BagDecision(item, classID, subClassID)
+    if classID == QUIVER then return "essentials", "Quiver / ammo pouch" end
+    if subClassID ~= 0 then return "essentials", "Profession bag" end
+    local slots = BagSlots(item)
+    local smallest
+    for bag = 1, 4 do   -- zwykłe miejsca na torby (0 = plecak, 5 = torba na reagenty)
+        local n = C_Container.GetContainerNumSlots(bag) or 0
+        if not smallest or n < smallest then smallest = n end
+    end
+    if slots and smallest and slots > smallest then
+        return "useme", smallest == 0 and ("Bag (" .. slots .. " slots) - you have a free bag slot, equip it")
+            or ("Bigger bag (" .. slots .. " vs " .. smallest .. " slots) - equip it")
+    end
+    return "essentials", slots and ("Spare bag (" .. slots .. " slots)") or "Bag"
+end
+
 ---------------------------------------------------------------------------
 -- Reguły; pierwsza pasująca wygrywa. Zwraca kategoria, powód.
 ---------------------------------------------------------------------------
@@ -374,8 +430,12 @@ local function Decide(item)
 
     if item.isStarter then return "useme", "Starts a quest" end
     if item.isQuest then return "quest", "Quest item" end
-    -- "Crate: ..." (skrzynki z Forever) zawsze do banku, także gdy dają się otworzyć
-    if (info.itemName or ""):find("^Crate:") then return "bank", "Crate" end
+    -- Skrzynki z Forever na bundle ("Crate: ...", "Waylaid Crate: ...") domyślnie na sprzedaż
+    -- (vendor albo AH wg ceny), także gdy dają się otworzyć
+    if (info.itemName or ""):find("Crate:", 1, true) then
+        local cat, why = PriceDecision(item)
+        return cat, "Crate; " .. why
+    end
     if info.hasLoot then
         if IsLockedBox(item) then
             local cat, why = PriceDecision(item)
@@ -396,6 +456,13 @@ local function Decide(item)
 
     if info.quality == 0 then return "vendor", "Grey item" end
 
+    -- tylko dla innej klasy (np. scrolle maga, gdy nie grasz magiem): na sprzedaż
+    local forClass = OtherClassOnly(item)
+    if forClass then
+        local cat, why = PriceDecision(item)
+        return cat, "For " .. forClass .. " only; " .. why
+    end
+
     if classID == QUESTITEM then return "quest", "Quest item" end
     if classID == KEY then return "essentials", "Key" end
     if classID == REAGENT then return "essentials", "Class reagent" end
@@ -414,7 +481,7 @@ local function Decide(item)
     if prof then return prof.key, prof.label .. " material" end
     if classID == TRADEGOODS or classID == GEM then return PriceDecision(item) end
     if classID == RECIPE then return RecipeDecision(item) end
-    if classID == CONTAINER or classID == QUIVER then return PriceDecision(item) end
+    if classID == CONTAINER or classID == QUIVER then return BagDecision(item, classID, subClassID) end
 
     if classID == WEAPON or classID == ARMOR then
         if info.isBound then

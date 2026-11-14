@@ -29,6 +29,17 @@ ns.THEMES = {
 }
 ns.THEME_ORDER = { "dark", "blizzard" }
 
+-- Compact mode (ustawienie, działa z każdym motywem): lewy pasek to wąska kolumna ikon,
+-- przyciski w nagłówku to ikony. PopokiBagDB.compact == true.
+function ns.Compact()
+    return PopokiBagDB and PopokiBagDB.compact == true or false
+end
+
+-- kolorowe nazwy kategorii (ustawienie)
+function ns.CategoryColors()
+    return ns.Setting("categoryColors")
+end
+
 function ns.ThemeKey()
     local k = PopokiBagDB and PopokiBagDB.theme
     return ns.THEMES[k] and k or "dark"
@@ -102,26 +113,64 @@ function ns.SkinPlus(p, hover)
     end
 end
 
--- Przycisk z napisem w nagłówku plecaka (Make room, Settings, Bags): ta sama wysokość co
--- wyszukiwarka, więc wszystko w rzędzie stoi równo; wygląd z motywu.
-function ns.HeaderButton(parent, label, tipTitle, tipText, onClick)
+-- Przycisk w nagłówku plecaka (Make room, Bags, Cleanup): z napisem, a w Compact mode jako ikona.
+-- Wysokość jak wyszukiwarka, więc rząd stoi równo; wygląd z motywu.
+-- iconSpec = { atlas = "...", icon = "Interface/Icons/..." } (atlas, jeśli klient go ma, inaczej icon)
+local function SetIconTexture(tex, spec)
+    if spec.atlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(spec.atlas) then
+        tex:SetTexCoord(0, 1, 0, 1)
+        tex:SetAtlas(spec.atlas)
+    else
+        tex:SetTexture(spec.icon)
+        if spec.flat then tex:SetTexCoord(0, 1, 0, 1) return end   -- tekstura przycisku, nie ikona przedmiotu
+        tex:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    end
+end
+ns.SetIconTexture = SetIconTexture
+
+function ns.HeaderButton(parent, label, tipTitle, tipText, onClick, iconSpec)
     local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
     b:SetHeight(20)
     b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     b.text:SetPoint("CENTER", 0, 0)
     b.text:SetText(label)
-    b:SetWidth(math.floor(b.text:GetStringWidth() + 18))
-    ns.SkinButton(b)
-    ns.OnThemeChange(function() ns.SkinButton(b) end)
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetAllPoints()
+    b.icon:Hide()
+    if iconSpec then SetIconTexture(b.icon, iconSpec) end
+    b.hl = b:CreateTexture(nil, "HIGHLIGHT")
+    b.hl:SetAllPoints()
+    b.hl:SetTexture("Interface/Buttons/ButtonHilight-Square")
+    b.hl:SetBlendMode("ADD")
+    b.hl:Hide()
+    local function Apply()
+        if ns.Compact() and iconSpec then
+            b.compact = true
+            b.skin = nil   -- po wyjściu z Compact mode tło ustawi się od nowa
+            b:SetBackdrop(nil)
+            b:SetSize(22, 22)
+            b.text:Hide()
+            b.icon:Show()
+        else
+            b.compact = false
+            b.icon:Hide()
+            b.text:Show()
+            b:SetSize(math.floor(b.text:GetStringWidth() + 18), 20)
+            ns.SkinButton(b)
+        end
+    end
+    Apply()
+    ns.OnThemeChange(Apply)
     b:SetScript("OnEnter", function(self)
-        ns.SkinButton(self, true)
+        if self.compact then self.hl:Show() else ns.SkinButton(self, true) end
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText(type(tipTitle) == "function" and tipTitle() or tipTitle)
         if tipText then GameTooltip:AddLine(tipText, 0.75, 0.75, 0.75, true) end
         GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function(self)
-        ns.SkinButton(self, false)
+        self.hl:Hide()
+        if not self.compact then ns.SkinButton(self, false) end
         GameTooltip:Hide()
     end)
     b:SetScript("OnClick", function(self)
@@ -130,7 +179,6 @@ function ns.HeaderButton(parent, label, tipTitle, tipText, onClick)
     end)
     return b
 end
-
 ---------------------------------------------------------------------------
 -- Pozostałe okna (Sell, Post, Bank, Make room, ustawienia, pasek toreb).
 -- ns.SkinWindow(win, { title = fs, titleDark = { punkt }, close = przycisk X,

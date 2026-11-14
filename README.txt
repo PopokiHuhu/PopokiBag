@@ -1,4 +1,4 @@
-POPOKI BAG 1.0.7 - bags sorted into categories for WoW Forever
+POPOKI BAG 1.0.8 - bags sorted into categories for WoW Forever
 ================================================================
 
 Popoki Bag replaces the default bags with its own window where items are already
@@ -26,19 +26,22 @@ THE WINDOW
 Left panel - views:
   Categories   - the main view, items in categories (below)
   (categories) - each category on its own
-  Bags         - your physical bags with empty slots; "Sort bags" packs items into the
-                 first bags so the last one can be emptied (categories don't change)
+  Bags         - your physical bags with empty slots; "Pack" moves items into the first
+                 bags so the last one can be emptied (categories don't change)
   All Items    - everything, grouped by type (Weapons, Armor, Trade Goods...)
   "Use me!"    - bottom of the panel: things to use right away (quest starters,
-                 recipes you can learn now, envelopes and pouches to open)
+                 recipes you can learn now, envelopes and pouches to open, and bags
+                 bigger than your smallest equipped bag - equip them)
 
 Categories (reorder them with the Edit button in the left panel):
   Essentials   - hearthstone, camp items (tent, campfire, Simple Wood...),
-                 profession tools, keys
+                 profession tools, keys, spare bags, quivers and ammo pouches
   Consumables  - food, potions, scrolls
   <your professions> - e.g. Skinning, Mining, Herbalism: materials for your primary
                  professions (gathering + crafting are merged, e.g. Skinning + LW)
-  For Vendor   - greys, soulbound items, and anything not worth posting on the AH
+  For Vendor   - greys, soulbound items, and anything not worth posting on the AH;
+                 also Forever bundle crates and items only for other classes
+                 (e.g. mage scrolls when you're not a mage) - or For Auction if they sell well
   For Auction  - items the AH pays >= 150% of vendor price and >= 2s more for
                  (change it in settings)
   To Bank      - recipes for a higher profession level, items that boost your professions
@@ -59,10 +62,15 @@ DRAGGING AND ORDER
 - Clicking a section header collapses / expands it.
 - Bags button in the header: the bar with your equipped bags (drag a new bag onto a slot
   there to equip it).
+- Cleanup button in the header: orders the items inside each category by type
+  (e.g. Consumables: food, drinks, potions, elixirs, flasks, scrolls, bandages).
+  Nothing moves in your bags; drag items afterwards if you want a different order.
 - Shift + click a stack to split it; the split part goes straight to a free slot.
 - Partial stacks of the same item merge automatically (not in combat or with NPC
   windows open; a stack you split yourself stays split for 5 minutes).
 - The bags always open on the Categories view.
+- Drag the corner grip (bottom right) to resize: width snaps to 6-16 columns, height is free.
+  /popoki reset restores the default size and position.
 
 
 FULL BAGS - "MAKE ROOM"
@@ -73,6 +81,8 @@ things you carry, valued by what is actually in the slot (1 hide out of 20 is pe
 With loot open, the top line says "Worth it" (drop something) or "Not worth it"
 (what you're picking up is worth less than anything on the list).
 Click to select, click again to destroy - and the loot you couldn't take is picked up.
+At the top, marked blue "(use it)": your "Use me!" items - using them (learning a recipe,
+equipping a bag, starting a quest) frees a slot without destroying anything.
 Never suggested: Quest Items (including RestedXP ones), Essentials, Consumables,
 Misfits, "Use me!", green "of the ..." items, items with no price, ammo and anything
 in a quiver, ammo pouch or reagent bag (dropping those frees no normal slot).
@@ -93,7 +103,10 @@ SETTINGS AND COMMANDS
 ---------------------
 The gear next to the X in the bag corner, or /popoki settings:
   AH threshold (% and minimum profit), NPC windows, new item glow, armor colors,
-  stack merging, the Make room window, theme for all windows (Dark or Blizzard).
+  stack merging, the Make room window, theme for all windows (Dark or Blizzard),
+  Compact mode (the left panel becomes a column of icons and the header buttons turn
+  into icons),
+  categories in the left panel and colored category names (both can be turned off).
 
 /popoki            - open / close the bags (/plecak works too)
 /popoki settings   - settings

@@ -16,12 +16,31 @@ local EDGE = { 0.2, 0.2, 0.22, 1 }
 local DIM_TEXT = { 0.6, 0.6, 0.6 }
 
 local GRID_W = COLS * (ns.SLOT_SIZE + ns.SLOT_GAP) - ns.SLOT_GAP
-
+-- COLS i GRID_W zmienia przeciąganie rogu okna (PopokiBagDB.cols, zmiana rozmiaru na końcu pliku)
+local MIN_COLS, MAX_COLS = 6, 16
+local function SetCols(n)
+    COLS = math.max(MIN_COLS, math.min(MAX_COLS, n))
+    GRID_W = COLS * (ns.SLOT_SIZE + ns.SLOT_GAP) - ns.SLOT_GAP
+end
+-- Compact mode: lewy pasek to wąska kolumna ikon
+local COMPACT_W = 40
+local function SideW()
+    return (ns.Compact and ns.Compact()) and COMPACT_W or SIDEBAR_W
+end
+-- szerokość okna dla bieżącej liczby kolumn
+local function FrameWidth(cols)
+    local grid = (cols or COLS) * (ns.SLOT_SIZE + ns.SLOT_GAP) - ns.SLOT_GAP
+    return SideW() + PAD * 2 + grid + PAD
+end
 -- Widoki w lewym pasku: wszystko, każda kategoria osobno, fizyczne torby
-local function BuildViews()
+-- showCats = kategorie jako podpunkty w lewym pasku (ustawienie; w trybie Edit zawsze, bo tam się je przestawia)
+local function BuildViews(showCats)
     local views = { { key = "all", label = "Categories" } }
-    for _, c in ipairs(ns.OrderedCategories()) do
-        views[#views + 1] = { key = c.key, label = c.label, color = c.color, isCategory = true }
+    if showCats then
+        local colors = ns.CategoryColors()
+        for _, c in ipairs(ns.OrderedCategories()) do
+            views[#views + 1] = { key = c.key, label = c.label, color = colors and c.color or nil, isCategory = true }
+        end
     end
     views[#views + 1] = { key = "bags", label = "Bags", gapBefore = true }
     views[#views + 1] = { key = "everything", label = "All Items" }
@@ -90,6 +109,7 @@ title:SetText("Inventory")
 title:SetTextColor(1, 1, 1)
 
 local slotsText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+ns.slotsText = slotsText
 slotsText:SetPoint("LEFT", title, "RIGHT", 10, 0)
 slotsText:SetTextColor(unpack(DIM_TEXT))
 
@@ -104,6 +124,52 @@ search:SetPoint("TOPRIGHT", -34, -10)
 search:HookScript("OnTextChanged", function() ns.Refresh() end)
 ns.search = search
 
+-- Compact mode: widoki jako ikony w wąskim lewym pasku (ustawiane w motywie, na końcu pliku)
+local VIEW_ICONS = {
+    { key = "all", icon = "Interface/Icons/INV_Misc_Note_01", tip = "Categories", text = "Items sorted into categories" },
+    { key = "bags", icon = "Interface/Icons/INV_Misc_Bag_08", tip = "Bags", text = "Your bags as they are" },
+    { key = "everything", icon = "Interface/Icons/INV_Misc_Book_09", tip = "All Items", text = "Everything, grouped by item type" },
+}
+local viewIcons = {}
+for i, def in ipairs(VIEW_ICONS) do
+    local b = CreateFrame("Button", nil, frame)
+    b:SetSize(24, 24)
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetAllPoints()
+    b.icon:SetTexture(def.icon)
+    b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    b.check = b:CreateTexture(nil, "OVERLAY")   -- wybrany widok: poświata Blizzarda
+    b.check:SetPoint("TOPLEFT", -3, 3)
+    b.check:SetPoint("BOTTOMRIGHT", 3, -3)
+    b.check:SetTexture("Interface/Buttons/CheckButtonHilight")
+    b.check:SetBlendMode("ADD")
+    b.check:Hide()
+    b:SetHighlightTexture("Interface/Buttons/ButtonHilight-Square", "ADD")
+    b.key = def.key
+    b:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(def.tip)
+        GameTooltip:AddLine(def.text, 0.75, 0.75, 0.75, true)
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b:SetScript("OnClick", function(self)
+        GameTooltip:Hide()
+        PopokiBagDB.view = self.key
+        ns.Refresh()
+    end)
+    b:Hide()
+    viewIcons[i] = b
+end
+
+local function UpdateViewIcons(view)
+    for _, b in ipairs(viewIcons) do
+        local on = b.key == view
+        b.check:SetShown(on)
+        b.icon:SetDesaturated(not on)
+        b.icon:SetAlpha(on and 1 or 0.75)
+    end
+end
 local function SearchQuery()
     local t = search:GetText()
     if not t or t == "" or t == SEARCH then return nil end
@@ -396,6 +462,18 @@ local function GetHeader(i)
         h.line:SetPoint("LEFT", h.text, "RIGHT", 8, 0)
         h.line:SetPoint("RIGHT")
         h.line:SetColorTexture(unpack(ns.Theme().line))
+        -- wyróżniona sekcja ("Use me!" w Compact mode): złote tło nagłówka z paskiem z lewej
+        h.band = h:CreateTexture(nil, "BACKGROUND")
+        h.band:SetPoint("TOPLEFT", -4, 0)
+        h.band:SetPoint("BOTTOMRIGHT", 0, 0)
+        h.band:SetColorTexture(1, 0.82, 0, 0.14)
+        h.band:Hide()
+        h.bandBar = h:CreateTexture(nil, "ARTWORK")
+        h.bandBar:SetPoint("TOPLEFT", h.band, "TOPLEFT")
+        h.bandBar:SetPoint("BOTTOMLEFT", h.band, "BOTTOMLEFT")
+        h.bandBar:SetWidth(2)
+        h.bandBar:SetColorTexture(1, 0.82, 0, 1)
+        h.bandBar:Hide()
         -- "Sell" przy For Vendor (widoczny tylko przy otwartym vendorze)
         h.sell = CreateFrame("Button", nil, h, "BackdropTemplate")
         h.sell:SetSize(46, 18)
@@ -404,13 +482,13 @@ local function GetHeader(i)
         h.sell.text:SetPoint("CENTER")
         h.sell.text:SetText("Sell")
         ns.SkinButton(h.sell)
-        -- ten sam przycisk: "Sell" przy For Vendor u vendora, "Sort bags" w widoku Bags
+        -- ten sam przycisk: "Sell" przy For Vendor u vendora, "Pack" w widoku Bags
         h.sell:SetScript("OnEnter", function(self)
             ns.SkinButton(self, true)
             if self.action == "sort" then
                 GameTooltip:SetOwner(self, "ANCHOR_TOP")
-                GameTooltip:SetText("Sort bags")
-                GameTooltip:AddLine("Packs items into the first bags so the last ones end up empty. Categories don't change.", 0.75, 0.75, 0.75, true)
+                GameTooltip:SetText("Pack bags")
+                GameTooltip:AddLine("Moves items into the first bags so the last ones end up empty (to swap a bag). Categories don't change.", 0.75, 0.75, 0.75, true)
                 GameTooltip:Show()
             end
         end)
@@ -615,7 +693,8 @@ local function CategorySection(cat, items)
             if cat.key == "auction" then value = value + (it.auctionValue or 0) end
         end
     end
-    local s = { title = Hex(cat.color) .. cat.label .. "|r", items = SortItems(list), catKey = cat.key }
+    local title = ns.CategoryColors() and (Hex(cat.color) .. cat.label .. "|r") or cat.label
+    local s = { title = title, items = SortItems(list), catKey = cat.key }
     if value > 0 then s.extra = ns.MoneyText(value) end
     return s
 end
@@ -708,7 +787,7 @@ hooksecurefunc(GameTooltip, "SetBagItem", function(tt, bag, slot)
     local cat = item and (ns.CATEGORY_BY_KEY[item.cat] or (item.cat == "useme" and ns.USE_ME))
     if not cat then return end   -- np. amunicja
     tt:AddLine(" ")
-    tt:AddLine("Popoki Bag: " .. Hex(cat.color) .. cat.label .. "|r", 1, 1, 1)
+    tt:AddLine("Popoki Bag: " .. (ns.CategoryColors() and (Hex(cat.color) .. cat.label .. "|r") or cat.label), 1, 1, 1)
     tt:AddLine(item.reason, 0.75, 0.75, 0.75, true)
     if ns.recent[item.info.itemID] then tt:AddLine("New item", 1, 0.85, 0.3) end
     if item.questNeed then
@@ -784,16 +863,28 @@ local function RefreshInner()
     end
 
     PopokiBagCharDB.orderReady = true
-    local views = BuildViews()
+    local compact = ns.Compact()
+    local views = BuildViews((ns.Setting("sidebarCategories") or editMode) and not compact)
     local view = PopokiBagDB.view
     local known = false
     for _, v in ipairs(views) do if v.key == view then known = true end end
     if not known then view = "all"; PopokiBagDB.view = view end
     UpdateSidebar(views, counts)
-    UpdateUseMe(useMeList)
+    if compact then
+        for _, b in ipairs(sideButtons) do b:Hide() end
+        useMe:Hide()
+        UpdateViewIcons(view)
+    else
+        UpdateUseMe(useMeList)
+    end
 
     local query = SearchQuery()
     local sections = BuildSections(view, items, slots)
+    -- Compact mode: wąski pasek nie mieści "Use me!", więc to pierwsza sekcja widoku Categories
+    if compact and view == "all" and #useMeList > 0 then
+        table.insert(sections, 1, { title = ns.USE_ME.label, items = useMeList, highlight = true,
+            extra = "|cffffd100things to use right away|r" })
+    end
     local STEP = ns.SLOT_SIZE + ns.SLOT_GAP
 
     local y, slotIdx, hdrIdx, plusIdx = 0, 1, 1, 1
@@ -807,6 +898,16 @@ local function RefreshInner()
             local text = s.title .. "  |cff999999" .. (s.countText or #s.items) .. "|r"
             if s.extra then text = text .. "  |cff999999·|r  " .. s.extra end
             h.text:SetText(text)
+            -- wyróżnienie: złote tło i jaśniejszy napis; zwykłe sekcje w kolorze nagłówków motywu
+            h.band:SetShown(s.highlight and true or false)
+            h.bandBar:SetShown(s.highlight and true or false)
+            if s.highlight then
+                h.text:SetFontObject("GameFontNormalLarge")
+                h.text:SetTextColor(1, 0.85, 0.25)
+            else
+                h.text:SetFontObject("GameFontNormal")
+                h.text:SetTextColor(unpack(ns.Theme().header))
+            end
             -- zwijanie tylko w widoku All Items; stan zapamiętany w PopokiBagDB.collapsed
             local collapsible = s.catKey ~= nil and view == "all"
             local collapsed = collapsible and PopokiBagDB.collapsed[s.catKey]
@@ -819,7 +920,7 @@ local function RefreshInner()
             end
             h.sell.action = action
             if action then
-                h.sell.text:SetText(action == "sort" and (ns.compacting and "Sorting..." or "Sort bags") or "Sell")
+                h.sell.text:SetText(action == "sort" and (ns.compacting and "Packing..." or "Pack") or "Sell")
                 h.sell:SetWidth(math.max(46, h.sell.text:GetStringWidth() + 18))
             end
             h.sell:SetShown(action and true or false)
@@ -960,6 +1061,7 @@ end
 ns.OnThemeChange(function()
     local t = ns.Theme()
     local blizz = ns.ThemeKey() == "blizzard"
+    local compact = ns.Compact()
     for i = 1, 3 do
         ACCENT[i] = t.accent[i]
         DIM_TEXT[i] = t.dim[i]
@@ -979,6 +1081,8 @@ ns.OnThemeChange(function()
         ShowChrome(false)
         SetFlatBackdrop(frame, BG, EDGE)
     end
+    -- Compact mode: węższy lewy pasek, więc i okno
+    frame:SetWidth(FrameWidth())
 
     -- nagłówek: przy ramce Blizzarda tytuł w pasku tytułu, reszta rząd niżej
     title:ClearAllPoints()
@@ -1004,13 +1108,15 @@ ns.OnThemeChange(function()
         close:SetPoint("CENTER", frame, "TOPRIGHT", -18, -20)
     end
     scroll:ClearAllPoints()
-    scroll:SetPoint("TOPLEFT", SIDEBAR_W + PAD + (blizz and 6 or 1), -top - 4)
+    scroll:SetPoint("TOPLEFT", SideW() + PAD + (blizz and 6 or 1), -top - 4)
     scroll:SetPoint("BOTTOMRIGHT", -PAD, FOOTER_H + 4)
     title:SetTextColor(unpack(t.title))
     slotsText:SetTextColor(unpack(DIM_TEXT))
+    search:SetWidth(compact and 140 or 170)
 
-    -- lewy pasek
+    -- lewy pasek: pełny (widoki z napisami, kategorie, "Use me!") albo w Compact mode kolumna ikon
     sidebar:ClearAllPoints()
+    sidebar:SetWidth(SideW())
     if blizz then
         sidebar:SetPoint("TOPLEFT", 6, -top)
         sidebar:SetPoint("BOTTOMLEFT", 6, FOOTER_H)
@@ -1019,6 +1125,18 @@ ns.OnThemeChange(function()
         sidebar:SetPoint("TOPLEFT", 1, -HEADER_H)
         sidebar:SetPoint("BOTTOMLEFT", 1, FOOTER_H)
         SetFlatBackdrop(sidebar, { 0.04, 0.04, 0.05, 0.9 }, { 0, 0, 0, 0 })
+    end
+    sideHeader:SetShown(not compact)
+    editBtn:SetShown(not compact)
+    if compact then
+        if editMode then editMode = false editBtn.text:SetText("Edit") end
+        for _, b in ipairs(sideButtons) do b:Hide() end
+        useMe:Hide()
+    end
+    for i, b in ipairs(viewIcons) do
+        b:ClearAllPoints()
+        b:SetPoint("TOP", sidebar, "TOP", 0, -10 - (i - 1) * 32)
+        b:SetShown(compact)
     end
     sideHeader:SetTextColor(unpack(DIM_TEXT))
     editBtn.text:SetTextColor(unpack(editMode and ACCENT or DIM_TEXT))
@@ -1050,7 +1168,7 @@ ns.OnThemeChange(function()
         footerBg:SetColorTexture(0, 0, 0, 0.5)
         footerLine:SetColorTexture(1, 0.82, 0, 0.3)
         hint:SetPoint("BOTTOMLEFT", PAD + 8, 10)
-        money:SetPoint("BOTTOMRIGHT", -PAD - 4, 10)
+        money:SetPoint("BOTTOMRIGHT", -PAD - 16, 10)
     else
         footerBg:SetPoint("BOTTOMLEFT", 1, 1)
         footerBg:SetPoint("BOTTOMRIGHT", -1, 1)
@@ -1058,10 +1176,91 @@ ns.OnThemeChange(function()
         footerBg:SetColorTexture(0, 0, 0, 0.3)
         footerLine:SetColorTexture(1, 1, 1, 0.08)
         hint:SetPoint("BOTTOMLEFT", PAD + 4, 9)
-        money:SetPoint("BOTTOMRIGHT", -PAD, 9)
+        money:SetPoint("BOTTOMRIGHT", -PAD - 14, 9)
     end
     earnings:SetTextColor(unpack(DIM_TEXT))
     hint:SetTextColor(unpack(DIM_TEXT))
 end)
 
 ns.On("PLAYER_LOGIN", ns.ApplyTheme)
+
+---------------------------------------------------------------------------
+-- Zmiana rozmiaru: uchwyt w prawym dolnym rogu. Szerokość = liczba kolumn (6-16, okno
+-- dociąga się do pełnych kolumn po puszczeniu), wysokość dowolna (więcej = mniej przewijania).
+-- Zapamiętane w PopokiBagDB.cols / PopokiBagDB.height; /popoki reset przywraca domyślne.
+---------------------------------------------------------------------------
+local DEFAULT_H = HEADER_H + 4 + CONTENT_H + 4 + FOOTER_H
+local MIN_H, MAX_H = 320, 1100
+frame:SetResizable(true)
+local function UpdateBounds()
+    local minW, maxW = FrameWidth(MIN_COLS), FrameWidth(MAX_COLS)
+    if frame.SetResizeBounds then
+        frame:SetResizeBounds(minW, MIN_H, maxW, MAX_H)
+    else
+        frame:SetMinResize(minW, MIN_H)
+        frame:SetMaxResize(maxW, MAX_H)
+    end
+end
+
+local function ApplyCols(n)
+    local before = COLS
+    SetCols(n)
+    if COLS == before then return end
+    content:SetWidth(GRID_W)
+    for _, h in ipairs(headers) do h:SetWidth(GRID_W) end
+    ns.RequestRefresh()
+end
+
+local grip = CreateFrame("Button", nil, frame)
+grip:SetSize(16, 16)
+grip:SetPoint("BOTTOMRIGHT", -2, 2)
+grip:SetFrameLevel(frame:GetFrameLevel() + 20)
+grip:SetNormalTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up")
+grip:SetHighlightTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Highlight")
+grip:SetPushedTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Down")
+grip:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText("Drag to resize")
+    GameTooltip:Show()
+end)
+grip:SetScript("OnLeave", function() GameTooltip:Hide() end)
+grip:SetScript("OnMouseDown", function(_, button)
+    if button ~= "LeftButton" then return end
+    GameTooltip:Hide()
+    UpdateBounds()
+    frame.sizing = true
+    frame:StartSizing("BOTTOMRIGHT")
+end)
+grip:SetScript("OnMouseUp", function()
+    frame.sizing = false
+    frame:StopMovingOrSizing()
+    -- dociągnij do pełnych kolumn i zapamiętaj
+    frame:SetWidth(FrameWidth())
+    PopokiBagDB.cols = COLS
+    PopokiBagDB.height = math.floor(frame:GetHeight() + 0.5)
+    local point, _, _, x, y = frame:GetPoint()
+    PopokiBagDB.pos = { point, x, y }
+end)
+
+frame:HookScript("OnSizeChanged", function(self, width)
+    if not frame.sizing then return end
+    -- ile pełnych kolumn mieści się w aktualnej szerokości
+    local cols = math.floor((width - FrameWidth(0) + 0.5) / (ns.SLOT_SIZE + ns.SLOT_GAP))
+    ApplyCols(cols)
+end)
+
+local function ApplySavedSize()
+    ApplyCols(PopokiBagDB.cols or 10)
+    frame:SetWidth(FrameWidth())
+    frame:SetHeight(PopokiBagDB.height or DEFAULT_H)
+end
+ns.On("PLAYER_LOGIN", ApplySavedSize)
+ns.OnThemeChange(function() if PopokiBagDB then frame:SetWidth(FrameWidth()) end end)
+
+-- /popoki reset: także domyślny rozmiar
+local oldReset = ns.commands.reset
+ns.commands.reset = function(...)
+    PopokiBagDB.cols, PopokiBagDB.height = nil, nil
+    ApplySavedSize()
+    if oldReset then oldReset(...) end
+end

@@ -121,7 +121,8 @@ local btn = ns.HeaderButton(frame, "Bags",
     function()
         win:SetShown(not win:IsShown())
         ns.RefreshBagBar()
-    end)
+    end,
+    { icon = "Interface/Icons/INV_Misc_Bag_08" })
 btn:SetPoint("RIGHT", ns.search, "LEFT", -10, -1)   -- ramka wyszukiwarki Blizzarda jest wizualnie niżej niż jej środek
 ns.bagBarButton = btn
 

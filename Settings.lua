@@ -58,7 +58,12 @@ local function Header(text)
 end
 
 -- płaski przełącznik z opisem
-local function Toggle(key, text)
+-- optIn = przełącznik domyślnie wyłączony (PopokiBagDB[key] == true); onChange po kliknięciu
+local function Toggle(key, text, optIn, onChange)
+    local function isOn()
+        if optIn then return PopokiBagDB[key] == true end
+        return ns.Setting(key)
+    end
     local b = CreateFrame("Button", nil, win, "BackdropTemplate")
     b:SetSize(16, 16)
     b:SetPoint("TOPLEFT", 16, y)
@@ -72,11 +77,18 @@ local function Toggle(key, text)
     label:SetPoint("LEFT", b, "RIGHT", 8, 0)
     label:SetText(text)
     b:SetScript("OnClick", function(self)
-        if ns.Setting(key) then PopokiBagDB[key] = false else PopokiBagDB[key] = nil end
-        self.check:SetShown(ns.Setting(key))
+        if optIn then
+            PopokiBagDB[key] = (not isOn()) or nil
+        elseif ns.Setting(key) then
+            PopokiBagDB[key] = false
+        else
+            PopokiBagDB[key] = nil
+        end
+        self.check:SetShown(isOn())
+        if onChange then onChange() end
         ns.RequestRefresh()
     end)
-    controls[#controls + 1] = function() b.check:SetShown(ns.Setting(key)) end
+    controls[#controls + 1] = function() b.check:SetShown(isOn()) end
     y = y - 24
 end
 
@@ -171,6 +183,9 @@ do
     y = y - 28
 end
 
+Toggle("compact", "Compact mode (icons instead of the left panel and buttons)", true, function() ns.ApplyTheme() end)
+Toggle("sidebarCategories", "Categories in the left panel")
+Toggle("categoryColors", "Colored category names")
 Toggle("newGlow", "Glow on new items")
 Toggle("armorColors", "Color armor that isn't your type")
 
@@ -214,15 +229,14 @@ gear:SetFrameLevel(ns.closeButton:GetFrameLevel())
 gear.icon = gear:CreateTexture(nil, "ARTWORK")
 gear.icon:SetAllPoints()
 local GEAR_ATLASES = { "QuestLog-icon-setting", "GM-icon-settings", "mechagon-projects" }
-local gearSet = false
+local gearAtlas
 for _, atlas in ipairs(GEAR_ATLASES) do
     if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) then
-        gear.icon:SetAtlas(atlas)
-        gearSet = true
+        gearAtlas = atlas
         break
     end
 end
-if not gearSet then gear.icon:SetTexture("Interface/Buttons/UI-OptionsButton") end
+if gearAtlas then gear.icon:SetAtlas(gearAtlas) else gear.icon:SetTexture("Interface/Buttons/UI-OptionsButton") end
 gear.icon:SetVertexColor(0.85, 0.85, 0.85)
 gear:SetScript("OnEnter", function(self)
     self.icon:SetVertexColor(1, 1, 1)
@@ -239,5 +253,15 @@ gear:SetScript("OnClick", function() GameTooltip:Hide() ns.ToggleSettings() end)
 -- przyciski z napisem w rzędzie wyszukiwarki, od prawej: [Bags] [Make room]
 local room = ns.HeaderButton(ns.frame, "Make room", "Make room",
     "Cheapest things in your bags, to destroy when they're full",
-    function() ns.ToggleRoom() end)
+    function() ns.ToggleRoom() end,
+    { icon = "Interface/Icons/Spell_Fire_Fire" })   -- ogień: niszczenie przedmiotów
 room:SetPoint("RIGHT", ns.bagBarButton, "LEFT", -8, 0)
+
+-- Cleanup: porządkuje kolejność w każdej kategorii według rodzaju przedmiotu (Room.lua);
+-- po lewej, zaraz za licznikiem slotów, ikona miotły
+local cleanup = ns.HeaderButton(ns.frame, "Cleanup", "Cleanup",
+    "Orders the items inside each category by type (e.g. food, drinks, potions, scrolls). Nothing moves in your bags.",
+    function() ns.CleanupOrder() end,
+    { atlas = "bags-button-autosort-up", icon = "Interface/Icons/INV_Misc_Note_02" })   -- miotła z toreb Blizzarda
+cleanup:SetPoint("LEFT", ns.slotsText, "RIGHT", 8, 0)
+ns.roomButton = room

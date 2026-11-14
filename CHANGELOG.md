@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.8
+
+### New
+- **Compact mode** (Settings -> Look): the left panel becomes a column of icons (Categories, Bags, All Items) and the header buttons turn into icons. "Use me!" becomes the first section of Categories, highlighted in gold, and only shows up when there's something to use.
+- **Cleanup** button (broom, next to the slot counter): orders the items inside each category by type - e.g. Consumables: food, drinks, potions, elixirs, flasks, scrolls, bandages. Nothing moves in your bags.
+- **Resizable bag window:** drag the bottom-right corner - width snaps to 6-16 columns, height is free. /popoki reset restores the default.
+- New settings: hide the categories from the left panel, turn off colored category names.
+
+### Changed
+- **Bags are never put up for sale:** a bag bigger than your smallest equipped one goes to "Use me!" (equip it), other bags, quivers and ammo pouches go to Essentials.
+- Forever bundle crates ("Crate: ...") now go up for sale (For Vendor or For Auction) instead of To Bank.
+- Items only for other classes (e.g. mage scrolls when you're not a mage) go up for sale.
+- Make room has a fire icon; "Sort bags" in the Bags view is now called **Pack**.
+- Make room also lists your "Use me!" items at the top (marked "use it") - using them frees a slot without destroying anything.
+
 ## 1.0.7
 
 ### Fixed
