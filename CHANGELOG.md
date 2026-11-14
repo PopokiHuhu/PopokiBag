@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.9
+
+### New
+- **Right-click menu:** right-click the bag background for Sort, Clean and Pack, with Settings below a line. Right-click again to close it.
+  - **Sort** - orders the items inside each category by type (the old Cleanup button).
+  - **Clean** - opens the Make room window.
+  - **Pack** - moves items into the first bags so the last one can be emptied.
+- **Compact mode in the Blizzard theme** has no left panel at all - the Categories / Bags / All Items icons sit in the header row next to the slot counter.
+
+### Changed
+- **The bag window resizes freely** - no more snapping; the grid fits as many columns as it can (6-16) and the rest is margin.
+- The Cleanup button is gone from the header (it's "Sort" in the right-click menu), so the header buttons no longer overlap in a small window.
+- The header row in the Blizzard theme sits a bit lower, with some space under the title bar.
+
 ## 1.0.8
 
 ### New

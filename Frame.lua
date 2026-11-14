@@ -24,7 +24,12 @@ local function SetCols(n)
 end
 -- Compact mode: lewy pasek to wąska kolumna ikon
 local COMPACT_W = 40
+-- Compact mode w motywie Blizzard: bez lewego paska, ikony widoków w nagłówku
+local function NoSidebar()
+    return ns.Compact and ns.Compact() and ns.ThemeKey() == "blizzard"
+end
 local function SideW()
+    if NoSidebar() then return 0 end
     return (ns.Compact and ns.Compact()) and COMPACT_W or SIDEBAR_W
 end
 -- szerokość okna dla bieżącej liczby kolumn
@@ -1092,11 +1097,16 @@ ns.OnThemeChange(function()
     -- top = gdzie kończy się nagłówek (lewy pasek i zawartość zaczynają się niżej)
     local top
     if blizz and nine then
-        top = 52
+        top = 56   -- rząd pod paskiem tytułu z lekkim odstępem od góry
         title:SetFontObject("GameFontNormal")
         title:SetPoint("TOP", 0, -4)
-        slotsText:SetPoint("LEFT", frame, "TOPLEFT", PAD + 8, -36)   -- środek rzędu z wyszukiwarką
-        search:SetPoint("TOPRIGHT", -14, -26)
+        if NoSidebar() then
+            -- ikony widoków na początku rzędu z wyszukiwarką, licznik slotów za nimi
+            slotsText:SetPoint("LEFT", viewIcons[#viewIcons], "RIGHT", 10, 0)
+        else
+            slotsText:SetPoint("LEFT", frame, "TOPLEFT", PAD + 8, -40)   -- środek rzędu z wyszukiwarką
+        end
+        search:SetPoint("TOPRIGHT", -14, -30)
         close:SetPoint("TOPRIGHT", 1, 0)
     else
         top = HEADER_H
@@ -1133,9 +1143,19 @@ ns.OnThemeChange(function()
         for _, b in ipairs(sideButtons) do b:Hide() end
         useMe:Hide()
     end
+    local noSide = NoSidebar()
+    sidebar:SetShown(not noSide)
     for i, b in ipairs(viewIcons) do
         b:ClearAllPoints()
-        b:SetPoint("TOP", sidebar, "TOP", 0, -10 - (i - 1) * 32)
+        if noSide then
+            -- w nagłówku, w rzędzie z wyszukiwarką
+            b:SetSize(20, 20)
+            if i == 1 then b:SetPoint("LEFT", frame, "TOPLEFT", PAD + 6, -40)
+            else b:SetPoint("LEFT", viewIcons[i - 1], "RIGHT", 6, 0) end
+        else
+            b:SetSize(24, 24)
+            b:SetPoint("TOP", sidebar, "TOP", 0, -10 - (i - 1) * 32)
+        end
         b:SetShown(compact)
     end
     sideHeader:SetTextColor(unpack(DIM_TEXT))
@@ -1185,15 +1205,16 @@ end)
 ns.On("PLAYER_LOGIN", ns.ApplyTheme)
 
 ---------------------------------------------------------------------------
--- Zmiana rozmiaru: uchwyt w prawym dolnym rogu. Szerokość = liczba kolumn (6-16, okno
--- dociąga się do pełnych kolumn po puszczeniu), wysokość dowolna (więcej = mniej przewijania).
--- Zapamiętane w PopokiBagDB.cols / PopokiBagDB.height; /popoki reset przywraca domyślne.
+-- Zmiana rozmiaru: uchwyt w prawym dolnym rogu, swobodnie w obu kierunkach. Siatka mieści tyle
+-- pełnych kolumn (6-16), ile się zmieści; resztę szerokości zostawia jako margines z prawej.
+-- Zapamiętane w PopokiBagDB.width / PopokiBagDB.height; /popoki reset przywraca domyślne.
 ---------------------------------------------------------------------------
 local DEFAULT_H = HEADER_H + 4 + CONTENT_H + 4 + FOOTER_H
 local MIN_H, MAX_H = 320, 1100
+local EXTRA_W = 120   -- ile szerzej niż 16 kolumn można rozciągnąć okno
 frame:SetResizable(true)
 local function UpdateBounds()
-    local minW, maxW = FrameWidth(MIN_COLS), FrameWidth(MAX_COLS)
+    local minW, maxW = FrameWidth(MIN_COLS), FrameWidth(MAX_COLS) + EXTRA_W
     if frame.SetResizeBounds then
         frame:SetResizeBounds(minW, MIN_H, maxW, MAX_H)
     else
@@ -1209,6 +1230,24 @@ local function ApplyCols(n)
     content:SetWidth(GRID_W)
     for _, h in ipairs(headers) do h:SetWidth(GRID_W) end
     ns.RequestRefresh()
+end
+
+-- ile pełnych kolumn mieści się w danej szerokości okna
+local function ColsFor(width)
+    return math.floor((width - FrameWidth(0)) / (ns.SLOT_SIZE + ns.SLOT_GAP))
+end
+
+-- szerokość: zapisana przez Ciebie (w granicach) albo dopasowana do 10 kolumn
+local function ApplyWidth()
+    local w = PopokiBagDB.width or (PopokiBagDB.cols and FrameWidth(PopokiBagDB.cols))   -- zapis z 1.0.8 (kolumny)
+    if w then
+        w = math.max(FrameWidth(MIN_COLS), math.min(FrameWidth(MAX_COLS) + EXTRA_W, w))
+        frame:SetWidth(w)
+        ApplyCols(ColsFor(w))
+    else
+        ApplyCols(10)
+        frame:SetWidth(FrameWidth())
+    end
 end
 
 local grip = CreateFrame("Button", nil, frame)
@@ -1234,33 +1273,30 @@ end)
 grip:SetScript("OnMouseUp", function()
     frame.sizing = false
     frame:StopMovingOrSizing()
-    -- dociągnij do pełnych kolumn i zapamiętaj
-    frame:SetWidth(FrameWidth())
-    PopokiBagDB.cols = COLS
+    PopokiBagDB.width = math.floor(frame:GetWidth() + 0.5)
     PopokiBagDB.height = math.floor(frame:GetHeight() + 0.5)
+    PopokiBagDB.cols = nil   -- stary zapis (sprzed swobodnej szerokości)
     local point, _, _, x, y = frame:GetPoint()
     PopokiBagDB.pos = { point, x, y }
 end)
 
 frame:HookScript("OnSizeChanged", function(self, width)
     if not frame.sizing then return end
-    -- ile pełnych kolumn mieści się w aktualnej szerokości
-    local cols = math.floor((width - FrameWidth(0) + 0.5) / (ns.SLOT_SIZE + ns.SLOT_GAP))
-    ApplyCols(cols)
+    ApplyCols(ColsFor(width))
 end)
 
 local function ApplySavedSize()
-    ApplyCols(PopokiBagDB.cols or 10)
-    frame:SetWidth(FrameWidth())
+    ApplyWidth()
     frame:SetHeight(PopokiBagDB.height or DEFAULT_H)
 end
 ns.On("PLAYER_LOGIN", ApplySavedSize)
-ns.OnThemeChange(function() if PopokiBagDB then frame:SetWidth(FrameWidth()) end end)
+-- motyw / Compact mode zmieniają szerokość lewego paska: przelicz kolumny dla zapisanej szerokości
+ns.OnThemeChange(function() if PopokiBagDB then ApplyWidth() end end)
 
 -- /popoki reset: także domyślny rozmiar
 local oldReset = ns.commands.reset
 ns.commands.reset = function(...)
-    PopokiBagDB.cols, PopokiBagDB.height = nil, nil
+    PopokiBagDB.cols, PopokiBagDB.width, PopokiBagDB.height = nil, nil, nil
     ApplySavedSize()
     if oldReset then oldReset(...) end
 end

@@ -242,6 +242,7 @@ gear:SetScript("OnEnter", function(self)
     self.icon:SetVertexColor(1, 1, 1)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:SetText("Settings")
+    GameTooltip:AddLine("Tip: right-click the bag background for Sort, Clean and Pack.", 0.75, 0.75, 0.75, true)
     GameTooltip:Show()
 end)
 gear:SetScript("OnLeave", function(self)
@@ -257,11 +258,30 @@ local room = ns.HeaderButton(ns.frame, "Make room", "Make room",
     { icon = "Interface/Icons/Spell_Fire_Fire" })   -- ogień: niszczenie przedmiotów
 room:SetPoint("RIGHT", ns.bagBarButton, "LEFT", -8, 0)
 
--- Cleanup: porządkuje kolejność w każdej kategorii według rodzaju przedmiotu (Room.lua);
--- po lewej, zaraz za licznikiem slotów, ikona miotły
-local cleanup = ns.HeaderButton(ns.frame, "Cleanup", "Cleanup",
-    "Orders the items inside each category by type (e.g. food, drinks, potions, scrolls). Nothing moves in your bags.",
-    function() ns.CleanupOrder() end,
-    { atlas = "bags-button-autosort-up", icon = "Interface/Icons/INV_Misc_Note_02" })   -- miotła z toreb Blizzarda
-cleanup:SetPoint("LEFT", ns.slotsText, "RIGHT", 8, 0)
-ns.roomButton = room
+-- Prawy klik w tło plecaka: krótkie menu bez nagłówka (Sort, Clean, Pack, kreska, Settings).
+-- Ponowny prawy klik, gdy menu jest otwarte, tylko je zamyka.
+local bagMenu, menuClosedAt = nil, 0
+local function OpenBagMenu(owner)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
+    bagMenu = MenuUtil.CreateContextMenu(owner, function(_, root)
+        root:CreateButton("Sort", function() ns.CleanupOrder() end)     -- kolejność w kategoriach wg rodzaju
+        root:CreateButton("Clean", function() ns.ToggleRoom() end)      -- Make room
+        root:CreateButton("Pack", function() ns.CompactBags() end)      -- opróżnij ostatnią torbę
+        root:CreateDivider()
+        root:CreateButton("Settings", function() ns.ToggleSettings() end)
+    end)
+    if bagMenu and not bagMenu.popokiHooked then
+        bagMenu.popokiHooked = true
+        bagMenu:HookScript("OnHide", function() menuClosedAt = GetTime() end)
+    end
+end
+ns.frame:HookScript("OnMouseUp", function(self, button)
+    if button ~= "RightButton" or not self:IsMouseOver() then return end
+    if bagMenu and bagMenu:IsShown() then
+        bagMenu:Hide()
+        return
+    end
+    -- ten sam klik mógł już zamknąć menu (gra zamyka je przy kliknięciu obok) - nie otwieraj od nowa
+    if GetTime() - menuClosedAt < 0.3 then return end
+    OpenBagMenu(self)
+end)ns.roomButton = room

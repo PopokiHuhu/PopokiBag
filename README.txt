@@ -1,4 +1,4 @@
-POPOKI BAG 1.0.8 - bags sorted into categories for WoW Forever
+POPOKI BAG 1.0.9 - bags sorted into categories for WoW Forever
 ================================================================
 
 Popoki Bag replaces the default bags with its own window where items are already
@@ -62,14 +62,18 @@ DRAGGING AND ORDER
 - Clicking a section header collapses / expands it.
 - Bags button in the header: the bar with your equipped bags (drag a new bag onto a slot
   there to equip it).
-- Cleanup button in the header: orders the items inside each category by type
+- Right-click the bag background for a small menu (right-click again to close it):
+  Sort (orders the items inside each category by type), Clean (the Make room window),
+  Pack (empties the last bag) and - below a line - Settings.
+  Sort orders each category by type
   (e.g. Consumables: food, drinks, potions, elixirs, flasks, scrolls, bandages).
   Nothing moves in your bags; drag items afterwards if you want a different order.
 - Shift + click a stack to split it; the split part goes straight to a free slot.
 - Partial stacks of the same item merge automatically (not in combat or with NPC
   windows open; a stack you split yourself stays split for 5 minutes).
 - The bags always open on the Categories view.
-- Drag the corner grip (bottom right) to resize: width snaps to 6-16 columns, height is free.
+- Drag the corner grip (bottom right) to resize freely; the grid fits as many columns
+  as it can (6-16).
   /popoki reset restores the default size and position.
 
 

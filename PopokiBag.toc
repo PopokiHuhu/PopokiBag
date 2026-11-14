@@ -2,7 +2,7 @@
 ## Title: Popoki Bag
 ## Notes: Inventory with categories: Essentials, Consumables, your profession materials, For Vendor, For Auction, To Bank, Misfits, Quest Items
 ## Author: popoki
-## Version: 1.0.8
+## Version: 1.0.9
 ## SavedVariables: PopokiBagDB
 ## SavedVariablesPerCharacter: PopokiBagCharDB
 ## OptionalDeps: Auctionator, RXPGuides
