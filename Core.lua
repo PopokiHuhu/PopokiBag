@@ -88,8 +88,9 @@ end)
 
 function ns.On(event, fn)
     if not handlers[event] then
+        -- zdarzenie, którego klient nie zna (Forever nie ma wszystkich z Classica/retaila): pomijamy
+        if not pcall(events.RegisterEvent, events, event) then return end
         handlers[event] = {}
-        events:RegisterEvent(event)
     end
     table.insert(handlers[event], fn)
 end

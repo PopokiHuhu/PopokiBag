@@ -1,4 +1,4 @@
-POPOKI BAG 1.0.11 - bags sorted into categories for WoW Forever
+POPOKI BAG 1.0.12 - bags sorted into categories for WoW Forever
 ================================================================
 
 Popoki Bag replaces the default bags with its own window where items are already
@@ -76,6 +76,20 @@ DRAGGING AND ORDER
   as it can (6-16).
   /popoki reset restores the default size and position.
 
+THE BANK
+--------
+At a banker the bank opens in a Popoki Bag window next to your bags (same theme, search
+and views: Categories, Bags, All Items). Right-click moves items between bank and bags,
+dragging works both ways. Right-click the bank background for Sort, Deposit and Settings.
+- Deposit (header button): the "Put in bank" list with To Bank and your profession items.
+- Bags view: the 8 bank bag slots - drag a bag onto a bought slot to put it in the bank.
+- Buy bag slot / Default bank (footer): switch to the game's own bank window for this
+  visit. Buying bank slots only works there - the game blocks addons from doing it.
+- Bank button in the bag header: see what was in your bank on your last visit, from
+  anywhere (view only).
+- Item tooltips show how many you have in the bank ("In bank: 12").
+- Don't like it? Settings -> "Popoki Bag bank window" off brings back the default bank.
+
 
 FULL BAGS - "MAKE ROOM"
 -----------------------
@@ -110,7 +124,7 @@ The gear next to the X in the bag corner, or /popoki settings:
   AH threshold (% and minimum profit), NPC windows, new item glow, armor colors,
   stack merging, the Make room window, theme for all windows (Dark or Blizzard),
   Compact mode (the left panel becomes a column of icons and the header buttons turn
-  into icons),
+  into icons), the Popoki Bag bank window,
   categories in the left panel and colored category names (both can be turned off).
 
 /popoki            - open / close the bags (/plecak works too)

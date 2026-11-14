@@ -462,13 +462,16 @@ end
 
 function ns.CleanupOrder()
     local ids, seen = {}, {}
-    for _, item in ipairs(ns.Scan()) do
-        local id = item.info.itemID
-        if not seen[id] then
+    local function add(id)
+        if id and not seen[id] then
             seen[id] = true
             ids[#ids + 1] = { id = id, key = CleanupKey(id) }
         end
     end
+    for _, item in ipairs(ns.Scan()) do add(item.info.itemID) end
+    -- bank (zapamiętana zawartość): ta sama kolejność rodzajów co w plecaku
+    local snap = PopokiBagCharDB.bankSnap
+    if snap then for _, e in ipairs(snap.items) do add(e.id) end end
     table.sort(ids, function(a, b)
         local x, y = a.key, b.key
         if x.class ~= y.class then return x.class < y.class end
@@ -480,4 +483,5 @@ function ns.CleanupOrder()
     for i, e in ipairs(ids) do PopokiBagCharDB.order[e.id] = i end
     ns.Print("Cleanup: items in each category are now ordered by type.")
     ns.RequestRefresh()
+    if ns.RequestBankRefresh then ns.RequestBankRefresh() end
 end

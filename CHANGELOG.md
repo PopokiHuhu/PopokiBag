@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.12
+
+### New
+- **Bank window in Popoki Bag style:** at a banker the bank opens next to your bags with the same theme, search and views (Categories, Bags, All Items). Right-click and dragging move items between bank and bags as usual.
+- **Deposit button** in the bank header opens the "Put in bank" list (To Bank and your profession items).
+- **Bank bag slots** in the Bags view - drag a bag onto a bought slot to put it in the bank.
+- **Bank button in the bag header:** see what was in your bank on your last visit, from anywhere (view only).
+- **"In bank: N"** on item tooltips.
+- **Right-click menu in the bank:** Sort, Deposit, Settings.
+- New setting "Popoki Bag bank window" - turn it off to get the default bank back.
+
+### Changed
+- Sort now orders bag and bank items together, so both windows use the same order.
+- "Buy bag slot" and "Default bank" switch to the game's own bank window for that visit - the game only lets its own window buy bank slots.
+
+### Fixed
+- Unknown game events no longer stop a part of the addon from loading.
+
 ## 1.0.11
 
 ### Fixed

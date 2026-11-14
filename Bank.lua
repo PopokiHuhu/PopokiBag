@@ -102,12 +102,14 @@ win = ns.CreateItemListWindow({
     },
 })
 
-local function OpenBankList()
+-- force = przycisk Deposit w oknie banku: otwiera też przy pustym To Bank, drugi klik zamyka
+local function OpenBankList(force)
+    if force and win:IsShown() then win:Hide() return end
     if not bankOpen or win:IsShown() or InCombatLockdown() then return end
     -- zakładki: To Bank + kategorie profesji; okno otwiera się zawsze na To Bank, a tylko gdy tam coś jest
     local tabs, counts = { { key = "main", label = "To Bank" } }, {}
     counts.main = #GatherBankable("main")
-    if counts.main == 0 then return end
+    if counts.main == 0 and not force then return end
     for _, c in ipairs(ns.CATEGORIES) do
         if c.isProfession then
             tabs[#tabs + 1] = { key = c.key, label = c.label }
@@ -117,7 +119,9 @@ local function OpenBankList()
     win:SetTabs(tabs)
     for key, n in pairs(counts) do win:SetTabCount(key, n) end
     win:ClearAllPoints()
-    if BankFrame and BankFrame:IsShown() then
+    if ns.bankWin and ns.bankWin:IsShown() then
+        ns.PlaceBeside(win)   -- na lewo od naszego okna banku
+    elseif BankFrame and BankFrame:IsShown() and BankFrame:IsVisible() then
         win:SetPoint("TOPLEFT", BankFrame, "TOPRIGHT", 12, 0)
     else
         win:SetPoint("CENTER", 0, 80)

@@ -736,6 +736,8 @@ local function TypeSections(items)
     return sections
 end
 
+ns.TypeSections = TypeSections   -- też dla okna banku
+
 local ALWAYS_SHOWN = { vendor = true, auction = true }
 
 -- Zwraca listę sekcji { title, items, catKey?, extra?, countText? } dla widoku

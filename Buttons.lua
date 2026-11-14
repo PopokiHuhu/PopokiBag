@@ -105,6 +105,7 @@ local function NewSlot(container)
     parent:Hide()
     return parent
 end
+ns.NewSlot = NewSlot   -- okno banku (BankWindow.lua) robi z tego własną pulę
 
 local function CreateSlot()
     if InCombatLockdown() then return nil end

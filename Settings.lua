@@ -135,7 +135,8 @@ y = y - 6
 Header("Open automatically")
 Toggle("autoSell", "Sell window at merchants")
 Toggle("autoAuction", "Post window at the auction house")
-Toggle("autoBank", "Bank window at the bank")
+Toggle("autoBank", "\"Put in bank\" list at the bank")
+Toggle("bankWindow", "Popoki Bag bank window (instead of the default bank)")
 y = y - 6
 
 Header("Full bags")
