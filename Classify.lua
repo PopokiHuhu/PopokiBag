@@ -424,6 +424,22 @@ end
 ---------------------------------------------------------------------------
 -- Reguły; pierwsza pasująca wygrywa. Zwraca kategoria, powód.
 ---------------------------------------------------------------------------
+-- Czy używasz tej amunicji: hunter zawsze; inne klasy, gdy mają założony łuk/kuszę (strzały)
+-- albo strzelbę (kule). Broń dystansowa może być w slocie ranged (18) albo w ręce (16).
+local AMMO_FOR_WEAPON = { [2] = 2, [18] = 2, [3] = 3 }   -- podklasa broni -> podklasa amunicji
+local function UsesAmmo(ammoSubClass)
+    local _, class = UnitClass("player")
+    if class == "HUNTER" then return true end
+    for _, slot in ipairs({ 18, 16 }) do
+        local id = GetInventoryItemID("player", slot)
+        if id then
+            local _, _, _, _, _, wClass, wSub = C_Item.GetItemInfoInstant(id)
+            if wClass == WEAPON and AMMO_FOR_WEAPON[wSub] == ammoSubClass then return true end
+        end
+    end
+    return false
+end
+
 local function Decide(item)
     local info = item.info
     local id = info.itemID
@@ -448,8 +464,14 @@ local function Decide(item)
     local name, _, _, _, _, _, _, _, _, _, _, classID, subClassID = ns.GetItemInfo(id)
     if not name then return "misfits", "Loading item info..." end
 
-    -- amunicji nie pokazujemy w kategoriach; jej suma jest w stopce okna
-    if classID == PROJECTILE then return "ammo", "Ammo" end
+    -- amunicja, której używasz (hunter albo pasująca broń dystansowa): nie pokazujemy jej
+    -- w kategoriach, jej suma jest w stopce okna. Cudza amunicja (inna klasa, brak łuku/strzelby)
+    -- idzie na sprzedaż jak każdy inny przedmiot.
+    if classID == PROJECTILE then
+        if UsesAmmo(subClassID) then return "ammo", "Ammo" end
+        local cat, why = PriceDecision(item)
+        return cat, "Ammo you don't use; " .. why
+    end
 
     local rxp = RestedXPNote(item)
     if rxp then return "quest", "RestedXP guide: " .. rxp end

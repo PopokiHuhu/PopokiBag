@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.13
+
+### Changed
+- **Ammo you don't use goes on sale:** ammo stays hidden (counted in the footer) only if you're a hunter or have a matching ranged weapon equipped - a bow or crossbow for arrows, a gun for bullets. Any other ammo now shows up in For Vendor or For Auction like other items.
+
 ## 1.0.12
 
 ### New
