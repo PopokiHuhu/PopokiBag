@@ -424,20 +424,26 @@ end
 ---------------------------------------------------------------------------
 -- Reguły; pierwsza pasująca wygrywa. Zwraca kategoria, powód.
 ---------------------------------------------------------------------------
--- Czy używasz tej amunicji: hunter zawsze; inne klasy, gdy mają założony łuk/kuszę (strzały)
--- albo strzelbę (kule). Broń dystansowa może być w slocie ranged (18) albo w ręce (16).
+-- Czy używasz tej amunicji: tylko rodzaj pasujący do założonej broni - łuk/kusza = strzały,
+-- strzelba = kule (każda klasa, także hunter: kule przy łuku idą na sprzedaż).
+-- Hunter bez żadnej broni na amunicję (np. w trakcie zmiany broni) zatrzymuje każdą.
+-- Broń dystansowa może być w slocie ranged (18) albo w ręce (16).
 local AMMO_FOR_WEAPON = { [2] = 2, [18] = 2, [3] = 3 }   -- podklasa broni -> podklasa amunicji
 local function UsesAmmo(ammoSubClass)
-    local _, class = UnitClass("player")
-    if class == "HUNTER" then return true end
+    local hasAmmoWeapon = false
     for _, slot in ipairs({ 18, 16 }) do
         local id = GetInventoryItemID("player", slot)
         if id then
             local _, _, _, _, _, wClass, wSub = C_Item.GetItemInfoInstant(id)
-            if wClass == WEAPON and AMMO_FOR_WEAPON[wSub] == ammoSubClass then return true end
+            local needs = wClass == WEAPON and AMMO_FOR_WEAPON[wSub]
+            if needs then
+                hasAmmoWeapon = true
+                if needs == ammoSubClass then return true end
+            end
         end
     end
-    return false
+    local _, class = UnitClass("player")
+    return class == "HUNTER" and not hasAmmoWeapon
 end
 
 local function Decide(item)

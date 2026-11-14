@@ -1,4 +1,4 @@
-POPOKI BAG 1.0.13 - bags sorted into categories for WoW Forever
+POPOKI BAG 1.0.14 - bags sorted into categories for WoW Forever
 ================================================================
 
 Popoki Bag replaces the default bags with its own window where items are already
@@ -49,8 +49,9 @@ Categories (reorder them with the Edit button in the left panel):
   Quest Items  - quest items and items used by RestedXP guides
 
 Ammo you use isn't in a category - the footer shows how much you have ("Ammo: ...").
-You use it if you're a hunter, or if you have a bow/crossbow (arrows) or a gun (bullets)
-equipped. Any other ammo goes to For Vendor or For Auction like other items.
+You use the kind that fits your equipped weapon: arrows for a bow or crossbow, bullets
+for a gun. Any other ammo (e.g. arrows while you shoot a gun) goes to For Vendor or
+For Auction like other items.
 The footer also shows "Cash-in": what you'd get for For Vendor, For Auction and materials
 (click it for the breakdown).
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.14
+
+### Changed
+- **Only the ammo for your weapon stays hidden:** arrows with a bow or crossbow, bullets with a gun - for every class, hunters too. The other kind (e.g. arrows while you shoot a gun) now shows up in For Vendor or For Auction.
+
 ## 1.0.13
 
 ### Changed
