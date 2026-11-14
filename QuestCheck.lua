@@ -29,6 +29,9 @@ end
 
 ns.On("QUEST_LOG_UPDATE", function() dirty = true end)
 
+-- słowa pomijane przy luźnym dopasowaniu nazwy przedmiotu do celu questa
+local STOPWORDS = { the = true, ["and"] = true, ["for"] = true, with = true, from = true }
+
 -- nil = nie dotyczy (to nie "Quest Item" od gry albo starter questa),
 -- false = brak w celach dziennika, tabela = { quest, raw } gdzie jest potrzebny
 function ns.QuestNeed(item)
@@ -41,6 +44,21 @@ function ns.QuestNeed(item)
     if not name then return nil end
     for _, o in ipairs(objectives) do
         if o.text:find(name, 1, true) then return o end
+    end
+    -- luźniej: cel questa nie zawsze powtarza nazwę przedmiotu ("Sarah's Ring" ->
+    -- "Take Sarah Ladimore's ring to..."), więc wystarczy, że są w nim wszystkie ważne słowa
+    local words = {}
+    for w in name:gsub("'s%f[%A]", ""):gmatch("%a+") do
+        if #w >= 3 and not STOPWORDS[w] then words[#words + 1] = w end
+    end
+    if #words > 0 then
+        for _, o in ipairs(objectives) do
+            local all = true
+            for _, w in ipairs(words) do
+                if not o.text:find(w, 1, true) then all = false break end
+            end
+            if all then return o end
+        end
     end
     return false
 end
@@ -65,3 +83,6 @@ ns.commands.quests = function()
         end
     end
 end
+
+-- dane z jednorazowego przeglądu (/popoki questscan, usunięte w 1.0.7) nie są już potrzebne
+ns.On("PLAYER_LOGIN", function() PopokiBagCharDB.questScan = nil end)

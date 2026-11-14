@@ -1,4 +1,4 @@
-POPOKI BAG 1.0.6 - bags sorted into categories for WoW Forever
+POPOKI BAG 1.0.7 - bags sorted into categories for WoW Forever
 ================================================================
 
 Popoki Bag replaces the default bags with its own window where items are already

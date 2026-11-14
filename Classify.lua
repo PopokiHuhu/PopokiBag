@@ -215,6 +215,17 @@ local function RestedXPNote(item)
         end
     end
     scanTip:Hide()
+    -- RestedXP zna quest, do którego jest przedmiot (questItemList). Jeśli ten quest już
+    -- oddałaś, przedmiot nie jest questowy (np. Lean Wolf Flank po "Seasoned Wolf Kabobs").
+    -- Quest jeszcze niewzięty = przedmiot zebrany na zapas, zostaje w Quest Items.
+    if note then
+        local ace = LibStub and LibStub("AceAddon-3.0", true)
+        local rxp = ace and ace:GetAddon("RXPGuides", true)
+        local questID = rxp and rxp.questItemList and rxp.questItemList[id]
+        if questID and C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(questID) then
+            note = false
+        end
+    end
     rxpCache[id] = note
     return note or nil
 end

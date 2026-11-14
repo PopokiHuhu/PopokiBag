@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.7
+
+### Fixed
+- Items from RestedXP guides leave Quest Items once their quest is turned in. Items collected ahead of a quest you haven't picked up yet stay protected.
+- Fewer false "probably not needed" red dots on quest items: an item now counts as needed when the quest objective mentions it in other words (e.g. "Sarah's Ring" -> "Take Sarah Ladimore's ring to...").
+
 ## 1.0.6
 
 ### New
