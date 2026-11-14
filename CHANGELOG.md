@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.11
+
+### Fixed
+- Make room: the "Picking up" box no longer shows a question mark and an empty name for items the game hasn't loaded yet. The icon and name appear right away, and the price and verdict fill in as soon as the item data arrives.
+- Make room: coins and other non-item loot are ignored when picking what you're looting.
+
+### Changed
+- The release zip is now named `PopokiBag-X.Y.Z-forever.zip` so the WowUp Hub can match it to WoW Forever.
+
 ## 1.0.10
 
 ### New

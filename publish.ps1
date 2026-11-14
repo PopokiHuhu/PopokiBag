@@ -36,7 +36,7 @@ if ($LASTEXITCODE -ne 0) {
 git tag $tag
 
 # 5. zip with a PopokiBag/ folder inside (git archive = forward slashes, which WowUp expects)
-$zip = Join-Path $repo "PopokiBag-$version.zip"
+$zip = Join-Path $repo "PopokiBag-$version-forever.zip"  # -forever suffix: WowUp Hub matches the zip to the WoW Forever game version
 git archive --format=zip --prefix=PopokiBag/ -o $zip $tag
 Copy-Item $zip "$env:USERPROFILE\Desktop\" -Force
 

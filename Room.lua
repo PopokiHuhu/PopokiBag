@@ -121,16 +121,29 @@ local lootOpen = false
 ns.On("LOOT_OPENED", function() lootOpen = true end)
 ns.On("LOOT_CLOSED", function() lootOpen = false end)
 
+local pendingLootInfo = false   -- jakiś przedmiot z lootu czeka na dane z serwera
+
 -- Najcenniejsza rzecz, która została w okienku lootu (przedmioty questowe zawsze wygrywają)
 local function LootTarget()
+    pendingLootInfo = false
     if not lootOpen then return nil end
     local best
     for i = 1, GetNumLootItems() do
         local link = GetLootSlotLink(i)
         local icon, name, qty, currencyID, quality, _, isQuestItem = GetLootSlotInfo(i)
-        if link and not currencyID then
+        local isItem = not (GetLootSlotType and Enum and Enum.LootSlotType) or GetLootSlotType(i) == Enum.LootSlotType.Item
+        if link and isItem and not currencyID then
             qty = (qty and qty > 0) and qty or 1
-            local sell = select(11, ns.GetItemInfo(link)) or 0
+            -- przedmiot jeszcze nieznany klientowi: link ma pustą nazwę "[]", brak ikony i ceny.
+            -- Ikona z GetItemInfoInstant (działa od razu), nazwa z okienka lootu, a gdy dane
+            -- dojdą (GET_ITEM_INFO_RECEIVED), ramka się odświeży.
+            icon = icon or select(5, C_Item.GetItemInfoInstant(link))
+            if name and name ~= "" and link:find("%[%]") then
+                link = link:gsub("%[%]", "[" .. name .. "]")
+            end
+            local info = { ns.GetItemInfo(link) }
+            if not info[1] then pendingLootInfo = true end
+            local sell = info[11] or 0
             local vendor = sell * qty
             local ah = ns.AuctionValue({ link = link, info = { stackCount = qty } })
             local e = { index = i, link = link, qty = qty, value = RealValue(vendor, ah), quest = isQuestItem,
@@ -194,6 +207,10 @@ end
 ns.On("LOOT_OPENED", function() C_Timer.After(0, LootChanged) end)
 ns.On("LOOT_SLOT_CLEARED", function() C_Timer.After(0, LootChanged) end)
 ns.On("LOOT_CLOSED", function() C_Timer.After(0, LootChanged) end)
+-- dane przedmiotu z lootu doszły z serwera: teraz znamy nazwę, ikonę i cenę
+ns.On("GET_ITEM_INFO_RECEIVED", function()
+    if pendingLootInfo and lootOpen then C_Timer.After(0.1, LootChanged) end
+end)
 
 local function Destroy(w, e)
     local info = C_Container.GetContainerItemInfo(e.bag, e.slot)
