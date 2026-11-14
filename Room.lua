@@ -127,13 +127,15 @@ local function LootTarget()
     local best
     for i = 1, GetNumLootItems() do
         local link = GetLootSlotLink(i)
-        local _, name, qty, currencyID, _, _, isQuestItem = GetLootSlotInfo(i)
+        local icon, name, qty, currencyID, quality, _, isQuestItem = GetLootSlotInfo(i)
         if link and not currencyID then
             qty = (qty and qty > 0) and qty or 1
             local sell = select(11, ns.GetItemInfo(link)) or 0
             local vendor = sell * qty
             local ah = ns.AuctionValue({ link = link, info = { stackCount = qty } })
-            local e = { index = i, link = link, qty = qty, value = RealValue(vendor, ah), quest = isQuestItem }
+            local e = { index = i, link = link, qty = qty, value = RealValue(vendor, ah), quest = isQuestItem,
+                vendor = vendor, ah = ah,
+                icon = icon, quality = quality }
             if not best or (e.quest and not best.quest) or (e.quest == best.quest and e.value > best.value) then
                 best = e
             end
@@ -152,17 +154,16 @@ local function Verdict(list)
         if not cheapest then return "Bags are full and nothing here is safe to suggest." end
         return "Bags are full. Cheapest things you carry:"
     end
-    local what = target.link .. (target.qty > 1 and (" x" .. target.qty) or "")
     if target.quest then
-        return "|cffffd100Quest item:|r " .. what .. " - make room for it."
+        return "|cffffd100Quest item|r - make room for it."
     end
     if target.value <= 0 then
-        return "|cff999999No price known for|r " .. what .. "|cff999999 - your call.|r"
+        return "|cff999999No price known - your call.|r"
     end
     if not cheapest or target.value <= cheapest.real then
-        return "|cffe08060Not worth it:|r " .. what .. " (" .. ns.MoneyText(target.value) .. ") is worth less than anything here."
+        return "|cffe08060Not worth it|r - it's worth less than anything here."
     end
-    return "|cff66cc99Worth it:|r " .. what .. " (" .. ns.MoneyText(target.value) .. ") - destroy something cheaper."
+    return "|cff66cc99Worth it|r - destroy something marked green."
 end
 
 local function Reload(w)
@@ -180,6 +181,7 @@ local function Reload(w)
         end
     end
     w.hintText:SetText(Verdict(w.list))
+    if w.UpdatePick then w.UpdatePick() end
     w:Render()
 end
 
@@ -217,6 +219,7 @@ win = ns.CreateItemListWindow({
     name = "PopokiBagRoomFrame",
     title = "Make room",
     hint = "",
+    extraTop = 46,   -- ramka z podnoszonym przedmiotem
     tooltip = { "Click: select, click again: destroy", "Right-click: hide from this list" },
     onLeft = function(w, index)
         local e = w.list[index]
@@ -251,6 +254,62 @@ win.hintText:SetJustifyH("LEFT")
 win.hintText:SetWordWrap(false)
 win.hintText:SetFontObject("GameFontHighlight")   -- werdykt ma być dobrze widoczny
 ns.RegisterSideWindow(win)
+
+-- Ramka nad listą: CO podnosisz (ikona, nazwa w kolorze jakości, ilość, wartość).
+-- Najedź, żeby zobaczyć pełny tooltip przedmiotu.
+local pick = CreateFrame("Frame", nil, win, "BackdropTemplate")
+pick:SetPoint("TOPLEFT", 12, -56)
+pick:SetPoint("TOPRIGHT", -12, -56)
+pick:SetHeight(40)
+pick:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8", edgeFile = "Interface/Buttons/WHITE8x8", edgeSize = 1 })
+pick:SetBackdropColor(0, 0, 0, 0.35)
+pick:SetBackdropBorderColor(1, 1, 1, 0.15)
+pick:EnableMouse(true)
+pick.icon = pick:CreateTexture(nil, "ARTWORK")
+pick.icon:SetSize(32, 32)
+pick.icon:SetPoint("LEFT", 4, 0)
+pick.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+pick.label = pick:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+pick.label:SetPoint("TOPLEFT", pick.icon, "TOPRIGHT", 8, -1)
+pick.label:SetTextColor(0.6, 0.6, 0.6)
+pick.name = pick:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+pick.name:SetPoint("BOTTOMLEFT", pick.icon, "BOTTOMRIGHT", 8, 1)
+pick.name:SetPoint("RIGHT", pick, "RIGHT", -120, 0)
+pick.name:SetJustifyH("LEFT")
+pick.name:SetWordWrap(false)
+-- wartość w dwóch linijkach, jak kolumny listy: "Vendor ..." i "AH ..."
+pick.value = pick:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+pick.value:SetPoint("TOPRIGHT", -8, -5)
+pick.value:SetJustifyH("RIGHT")
+pick.ah = pick:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+pick.ah:SetPoint("BOTTOMRIGHT", -8, 5)
+pick.ah:SetJustifyH("RIGHT")
+pick:SetScript("OnEnter", function(self)
+    if not target then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetHyperlink(target.link)
+    GameTooltip:Show()
+end)
+pick:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+function win.UpdatePick()
+    if target then
+        pick.icon:SetTexture(target.icon or 134400)
+        pick.icon:SetDesaturated(false)
+        pick.label:SetText(target.quest and "Picking up (quest item)" or "Picking up")
+        pick.name:SetText(target.link .. (target.qty > 1 and (" |cffffffffx" .. target.qty .. "|r") or ""))
+        local none = "|cff666666-|r"
+        pick.value:SetText("|cff999999Vendor|r  " .. ((target.vendor or 0) > 0 and ns.MoneyText(target.vendor) or none))
+        pick.ah:SetText("|cff999999AH|r  " .. (target.ah and ns.MoneyText(target.ah) or none))   -- jak kolumna AH w liście
+    else
+        pick.icon:SetTexture(134400)   -- znak zapytania
+        pick.icon:SetDesaturated(true)
+        pick.label:SetText("Picking up")
+        pick.name:SetText("|cff999999nothing from loot - just the cheapest things you carry|r")
+        pick.value:SetText("")
+        pick.ah:SetText("")
+    end
+end
 
 local function OpenRoom()
     target = LootTarget()

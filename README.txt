@@ -1,4 +1,4 @@
-POPOKI BAG 1.0.9 - bags sorted into categories for WoW Forever
+POPOKI BAG 1.0.10 - bags sorted into categories for WoW Forever
 ================================================================
 
 Popoki Bag replaces the default bags with its own window where items are already
@@ -82,7 +82,8 @@ FULL BAGS - "MAKE ROOM"
 When the game says your bags are full, the "Make room" window opens (or use the
 Make room button in the bag header; click it again to close). It lists the cheapest
 things you carry, valued by what is actually in the slot (1 hide out of 20 is pennies).
-With loot open, the top line says "Worth it" (drop something) or "Not worth it"
+With loot open, the item you're picking up is shown at the top (icon, name, value -
+hover it for the full tooltip) with a verdict: "Worth it" (drop something) or "Not worth it"
 (what you're picking up is worth less than anything on the list).
 Click to select, click again to destroy - and the loot you couldn't take is picked up.
 At the top, marked blue "(use it)": your "Use me!" items - using them (learning a recipe,

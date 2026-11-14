@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.10
+
+### New
+- **Make room shows what you're picking up:** a box at the top with the item's icon, name and amount, plus its vendor and AH value next to it - hover it for the full tooltip. The verdict above it ("Worth it" / "Not worth it") is now shorter.
+
 ## 1.0.9
 
 ### New

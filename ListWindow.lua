@@ -116,7 +116,7 @@ function ns.CreateItemListWindow(opts)
     local colLabels = {}
     local function ColumnLabel(text, point, x)
         local fs = win:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        fs:SetPoint(point, win, "TOPLEFT", x, -58)
+        fs:SetPoint(point, win, "TOPLEFT", x, -58 - (opts.extraTop or 0))
         fs:SetTextColor(unpack(DIM_TEXT))
         fs:SetText(text)
         colLabels[#colLabels + 1] = fs
@@ -126,8 +126,9 @@ function ns.CreateItemListWindow(opts)
     ColumnLabel("AH", "TOPRIGHT", COL_AH_R)
 
     local scroll = CreateFrame("ScrollFrame", nil, win)
-    scroll:SetPoint("TOPLEFT", 8, -74)
-    scroll:SetPoint("TOPRIGHT", -8, -74)
+    -- opts.extraTop: dodatkowe miejsce nad listą (np. podnoszony przedmiot w Make room)
+    scroll:SetPoint("TOPLEFT", 8, -74 - (opts.extraTop or 0))
+    scroll:SetPoint("TOPRIGHT", -8, -74 - (opts.extraTop or 0))
     scroll:EnableMouseWheel(true)
     scroll:SetScript("OnMouseWheel", function(self, delta)
         local max = self:GetVerticalScrollRange()
@@ -258,7 +259,7 @@ function ns.CreateItemListWindow(opts)
         local visible = math.max(1, math.min(#list, MAX_ROWS))
         scroll:SetHeight(visible * ROW_H)
         if scroll:GetVerticalScroll() > scroll:GetVerticalScrollRange() then scroll:SetVerticalScroll(0) end
-        self:SetHeight(74 + visible * ROW_H + 76)
+        self:SetHeight(74 + (opts.extraTop or 0) + visible * ROW_H + 76)
         summary:SetText(opts.summary(self))
     end
 
