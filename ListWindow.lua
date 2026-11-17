@@ -10,10 +10,10 @@ local ADDON, ns = ...
 
 local ROW_H = 22
 local MAX_ROWS = 12
-local WIDTH = 440
+local WIDTH = 500
 local DIM_TEXT = { 0.6, 0.6, 0.6 }
 local ACCENT = { 0.25, 0.8, 0.7 }
-local COL_VENDOR_R = WIDTH - 110   -- prawa krawędź kolumny Vendor
+local COL_VENDOR_R = WIDTH - 125   -- prawa krawędź kolumny Vendor (miejsce na "5g 75s 95c")
 local COL_AH_R = WIDTH - 22        -- prawa krawędź kolumny AH
 
 local function Flat(f, bg, edge)
@@ -93,6 +93,21 @@ function ns.CreateItemListWindow(opts)
             self.tabButtons[t.key] = b
             prevTab = b
         end
+        self:FitHint()
+    end
+
+    -- podpowiedź pod tytułem chowa się, gdy zakładki by na nią nachodziły
+    -- (te same informacje są w tooltipie wiersza)
+    function win:FitHint()
+        local tabsW, n = 0, 0
+        for _, b in ipairs(tabPool) do
+            if b:IsShown() then tabsW, n = tabsW + b:GetWidth(), n + 1 end
+        end
+        if n > 0 then tabsW = tabsW + 12 * (n - 1) end
+        local hintRight = 14 + hint:GetStringWidth()
+        local tabsLeft = WIDTH - 14 - tabsW
+        -- zakładki są w linii podpowiedzi tylko w motywie Blizzard (framed); w Dark są wyżej, przy tytule
+        hint:SetShown(n == 0 or not self.framed or hintRight + 16 <= tabsLeft)
     end
 
     -- napis zakładki z licznikiem, np. "Skinning (3)"
@@ -101,6 +116,7 @@ function ns.CreateItemListWindow(opts)
         if not b then return end
         b.text:SetText(b.label .. ((n and n > 0) and (" (" .. n .. ")") or ""))
         b:SetWidth(b.text:GetStringWidth() + 4)
+        self:FitHint()
     end
 
     function win:SetTab(key)
@@ -160,12 +176,13 @@ function ns.CreateItemListWindow(opts)
         r.icon:SetPoint("LEFT", 6, 0)
         r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        r.name:SetPoint("LEFT", r.icon, "RIGHT", 6, 0)
-        r.name:SetPoint("RIGHT", r, "LEFT", COL_VENDOR_R - 90, 0)
-        r.name:SetJustifyH("LEFT")
-        r.name:SetWordWrap(false)
         r.vendor = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         r.vendor:SetPoint("RIGHT", r, "LEFT", COL_VENDOR_R - 8, 0)
+        -- nazwa kończy się tam, gdzie zaczyna się cena vendora (długie kwoty nie nachodzą na nazwę)
+        r.name:SetPoint("LEFT", r.icon, "RIGHT", 6, 0)
+        r.name:SetPoint("RIGHT", r.vendor, "LEFT", -10, 0)
+        r.name:SetJustifyH("LEFT")
+        r.name:SetWordWrap(false)
         r.ah = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         r.ah:SetPoint("RIGHT", r, "LEFT", COL_AH_R - 8, 0)
         r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -226,7 +243,10 @@ function ns.CreateItemListWindow(opts)
             r.name:SetText(name)
             r.vendor:SetText(ns.MoneyText(e.value))
             if e.live then
-                r.ah:SetText(ns.MoneyText(e.live))   -- cena z zakładki Selling Auctionatora
+                -- cena z zakładki Selling Auctionatora; na czerwono, gdy AH da mniej niż vendor
+                -- (po 5% prowizji AH)
+                local low = e.value > 0 and e.live * 0.95 < e.value
+                r.ah:SetText((low and "|cffff5555" or "") .. ns.MoneyText(e.live) .. (low and "|r" or ""))
             else
                 r.ah:SetText(e.ahCheck and "|cff999999check|r" or (e.ah and ns.MoneyText(e.ah)) or "|cff666666-|r")
             end
@@ -279,6 +299,7 @@ function ns.CreateItemListWindow(opts)
                 DIM_TEXT[i] = t.dim[i]
             end
             hint:SetTextColor(unpack(DIM_TEXT))
+            win:FitHint()
             for _, fs in ipairs(colLabels) do fs:SetTextColor(unpack(DIM_TEXT)) end
             for _, b in ipairs(tabPool) do
                 b.line:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
@@ -298,7 +319,9 @@ function ns.ListEntry(item)
     return {
         bag = item.bag, slot = item.slot, id = item.info.itemID,
         value = (item.sellPrice or 0) * (item.info.stackCount or 1),
-        ah = not item.randomSuffix and ns.AuctionValue(item) or nil, ahCheck = item.randomSuffix,
+        -- przyrostek z zapamiętaną ceną wariantu: ta cena; bez niej "check"
+        ah = item.suffixPriced and item.auctionValue or (not item.randomSuffix and ns.AuctionValue(item)) or nil,
+        ahCheck = item.randomSuffix,
         link = item.link, icon = item.info.iconFileID,
         count = item.info.stackCount or 1, name = item.info.itemName, autoCat = item.autoCat,
     }

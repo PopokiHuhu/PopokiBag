@@ -93,7 +93,13 @@ win = ns.CreateItemListWindow({
         if not e or not ns.merchantOpen or selling then return end
         table.remove(w.list, index)
         SellList({ e })
-        if #w.list == 0 then w:Hide() else w:Render() end
+        if #w.list == 0 then
+            -- zakładka pusta: po chwili otwórz pierwszą niepustą (np. Skinning)
+            w:Hide()
+            C_Timer.After(0.8, function() ns.SellVendorSection(true) end)
+        else
+            w:Render()
+        end
     end,
     onRight = function(w, index)
         local e = w.list[index]
@@ -124,7 +130,7 @@ win = ns.CreateItemListWindow({
     },
 })
 
-function ns.SellVendorSection(silent)
+function ns.SellVendorSection(silent, startTab)
     if not ns.merchantOpen or selling then return end
     if InCombatLockdown() then
         ns.Print("Can't sell during combat.")
@@ -144,9 +150,16 @@ function ns.SellVendorSection(silent)
         if not silent then ns.Print("Nothing to sell.") end
         return
     end
+    -- podana zakładka (przycisk w nagłówku sekcji), inaczej pierwsza niepusta
+    local start = (startTab and (counts[startTab] or 0) > 0) and startTab
+    if not start then
+        for _, t in ipairs(tabs) do
+            if counts[t.key] > 0 then start = t.key break end
+        end
+    end
     win:SetTabs(tabs)
     for key, n in pairs(counts) do win:SetTabCount(key, n) end
-    win:SetTab("main")
+    win:SetTab(start)
     win:Show()
 end
 

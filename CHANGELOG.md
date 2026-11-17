@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.15
+
+### New
+- **Sell and Post buttons on more section headers:** at a vendor, Sell is on For Vendor and on your profession categories (e.g. Skinning); at the auction house, Post is on For Auction and your profession categories. Each opens the list on that tab, even after you closed it.
+- Random-suffix items ("of the Whale"): once Auctionator prices the item in its Selling tab, Popoki Bag remembers that price for 3 days and moves the item to For Vendor if the vendor pays more.
+- Addon icon in the in-game AddOns list.
+
+### Changed
+- Sell and Post lists move on to the next tab that still has items instead of closing when the current tab is empty.
+- The AH price turns red and the Post button says "vendor pays more" when the auction (after the 5% cut) would give less than the vendor.
+- Wider sell/post lists; long prices no longer cover item names, and the hint line hides when the tabs need its space.
+- Weapon oils and other usable trade goods (e.g. Lesser Mana Oil) go to Consumables.
+
+### Fixed
+- Grey items with no sell price (e.g. readable logs) go to Misfits instead of For Vendor.
+
 ## 1.0.14
 
 ### Changed

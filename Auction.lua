@@ -155,7 +155,30 @@ local function LivePrice(e)
     local ok, unit = pcall(sf.Price.GetAmount, sf.Price)
     if not ok or not unit or unit <= 0 then return nil end
     local okq, qty = pcall(sf.Quantity.GetNumber, sf.Quantity)
-    return unit * ((okq and qty and qty > 0) and qty or 1)
+    return unit * ((okq and qty and qty > 0) and qty or 1), unit, link
+end
+
+-- Przedmioty z losowym przyrostkiem: cenę wariantu znamy dopiero z zakładki Selling.
+-- Zapamiętujemy pierwszą cenę, jaką Auctionator zaproponował (nie Twoje późniejsze poprawki
+-- w polu ceny, żeby przedmiot nie skakał między sekcjami w trakcie wpisywania), na 3 dni.
+-- Classify.lua używa jej zamiast "check": gdy vendor daje więcej, przedmiot idzie do For Vendor.
+local SUFFIX_TTL = 3 * 24 * 3600
+function ns.SuffixPrice(link)
+    local db = PopokiBagDB.suffixPrices
+    local p = db and link and db[link]
+    if not p then return nil end
+    if time() - (p.t or 0) > SUFFIX_TTL then
+        db[link] = nil
+        return nil
+    end
+    return p.unit
+end
+local function RememberSuffixPrice(link, unit)
+    PopokiBagDB.suffixPrices = PopokiBagDB.suffixPrices or {}
+    local db = PopokiBagDB.suffixPrices
+    if db[link] and db[link].unit == unit then return end
+    db[link] = { unit = unit, t = time() }
+    ns.RequestRefresh()   -- plecak przelicza kategorię; lista AH zmieni się przy następnej zmianie w torbach
 end
 
 local elapsed = 0
@@ -165,12 +188,22 @@ win:HookScript("OnUpdate", function(self, dt)
     elapsed = 0
     local sel
     for _, e in ipairs(self.list) do if e.selected then sel = e end end
-    local live = sel and LivePrice(sel)
+    local live, unit, link
+    if sel then live, unit, link = LivePrice(sel) end
     if sel and sel.live ~= live then
+        -- pierwsza cena po załadowaniu przedmiotu = propozycja Auctionatora
+        if live and not sel.live and not sel.suffixSaved and sel.ahCheck then
+            sel.suffixSaved = true
+            RememberSuffixPrice(link, unit)
+        end
         sel.live = live
         self:Render()
     end
     local label = live and ("Post " .. ns.MoneyText(live)) or "Post"
+    -- AH (po 5% prowizji) da mniej niż vendor: ostrzeżenie na przycisku, decyzja należy do Ciebie
+    if live and sel.value > 0 and live * 0.95 < sel.value then
+        label = label .. "  |cffff5555(vendor pays more)|r"
+    end
     local b = self.buttons.Post
     if b and b.text:GetText() ~= label then b:SetLabel(label) end
 end)
@@ -194,7 +227,8 @@ local function Rebuild()
     end
     win.list = list
     if #list == 0 then
-        win:Hide()
+        -- zakładka pusta: przejdź do następnej z przedmiotami (np. Skinning); gdy nic nie ma, zamknij
+        ns.OpenAuctionList(nil, true)
         return
     end
     win:Render()
@@ -211,9 +245,13 @@ ns.On("BAG_UPDATE_DELAYED", function()
     end)
 end)
 
-local function OpenAuctionList()
-    if not ahOpen or win:IsShown() then return end
-    if not AuctionatorReady() then return end
+-- startTab: zakładka z przycisku Post w nagłówku sekcji; silent: bez komunikatów w czacie
+local function OpenAuctionList(startTab, silent)
+    if not ahOpen then return end
+    if not AuctionatorReady() then
+        if not silent then ns.Print("Auctionator isn't ready yet - try again in a moment.") end
+        return
+    end
     -- zakładki: For Auction + kategorie profesji postaci; okno zawsze otwiera się na For Auction
     local tabs, counts, any = { { key = "main", label = "For Auction" } }, {}, false
     counts.main = #GatherAuctionable("main")
@@ -224,13 +262,23 @@ local function OpenAuctionList()
         end
     end
     for _, n in pairs(counts) do if n > 0 then any = true end end
-    if not any then return end
+    if not any then
+        if not silent then ns.Print("Nothing to post.") end
+        win:Hide()
+        return
+    end
+    local start = (startTab and (counts[startTab] or 0) > 0) and startTab
+    if not start then
+        for _, t in ipairs(tabs) do
+            if counts[t.key] > 0 then start = t.key break end
+        end
+    end
     win:SetTabs(tabs)
     for key, n in pairs(counts) do win:SetTabCount(key, n) end
     win:ClearAllPoints()
     win:SetPoint("TOPLEFT", AuctionHouseFrame, "TOPRIGHT", 12, 0)
     win:Show()
-    win:SetTab("main")   -- zawsze zakładka główna; ładuje listę i pierwszy przedmiot
+    win:SetTab(start)   -- ładuje listę i pierwszy przedmiot
 end
 ns.OpenAuctionList = OpenAuctionList
 
@@ -238,11 +286,17 @@ local AUCTIONEER = Enum.PlayerInteractionType and Enum.PlayerInteractionType.Auc
 ns.On("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", function(_, paneType)
     if paneType ~= AUCTIONEER then return end
     ahOpen = true
+    ns.ahOpen = true
+    ns.RequestRefresh()   -- przyciski Post w nagłówkach
     -- Auctionator przy pierwszym otwarciu sam przełącza zakładkę klatkę później; czekamy chwilę
-    if ns.Setting("autoAuction") then C_Timer.After(0.6, OpenAuctionList) end
+    if ns.Setting("autoAuction") then
+        C_Timer.After(0.6, function() if not win:IsShown() then OpenAuctionList(nil, true) end end)
+    end
 end)
 ns.On("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", function(_, paneType)
     if paneType ~= AUCTIONEER then return end
     ahOpen = false
+    ns.ahOpen = false
     win:Hide()
+    ns.RequestRefresh()
 end)

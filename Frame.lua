@@ -499,7 +499,13 @@ local function GetHeader(i)
         end)
         h.sell:SetScript("OnLeave", function(self) ns.SkinButton(self, false) GameTooltip:Hide() end)
         h.sell:SetScript("OnClick", function(self)
-            if self.action == "sort" then ns.CompactBags() else ns.SellVendorSection() end
+            if self.action == "sort" then
+                ns.CompactBags()
+            elseif self.action == "post" then
+                ns.OpenAuctionList(self.tabKey)
+            else
+                ns.SellVendorSection(false, self.tabKey)
+            end
         end)
         h.sell:Hide()
         local function drop(self) if self.catKey then ns.DropOnCategory(self.catKey) end end
@@ -919,15 +925,21 @@ local function RefreshInner()
             local collapsible = s.catKey ~= nil and view == "all"
             local collapsed = collapsible and PopokiBagDB.collapsed[s.catKey]
             SetHeaderArrow(h, collapsible, collapsed)
-            local action
-            if s.catKey == "vendor" and ns.merchantOpen then
-                action = "sell"
+            -- Sell u vendora (For Vendor i kategorie profesji), Post przy AH (For Auction i profesje)
+            local action, tabKey
+            local catDef = s.catKey and ns.CATEGORY_BY_KEY[s.catKey]
+            local isProf = catDef and catDef.isProfession
+            if ns.merchantOpen and (s.catKey == "vendor" or isProf) then
+                action, tabKey = "sell", (isProf and s.catKey or "main")
+            elseif ns.ahOpen and (s.catKey == "auction" or isProf) then
+                action, tabKey = "post", (isProf and s.catKey or "main")
             elseif view == "bags" and hdrIdx == 2 then   -- pierwszy nagłówek w widoku Bags
                 action = "sort"
             end
-            h.sell.action = action
+            h.sell.action, h.sell.tabKey = action, tabKey
             if action then
-                h.sell.text:SetText(action == "sort" and (ns.compacting and "Packing..." or "Pack") or "Sell")
+                h.sell.text:SetText(action == "sort" and (ns.compacting and "Packing..." or "Pack")
+                    or action == "post" and "Post" or "Sell")
                 h.sell:SetWidth(math.max(46, h.sell.text:GetStringWidth() + 18))
             end
             h.sell:SetShown(action and true or false)

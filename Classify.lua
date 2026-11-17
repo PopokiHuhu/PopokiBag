@@ -482,7 +482,14 @@ local function Decide(item)
     local rxp = RestedXPNote(item)
     if rxp then return "quest", "RestedXP guide: " .. rxp end
 
-    if info.quality == 0 then return "vendor", "Grey item" end
+    if info.quality == 0 then
+        -- szary bez ceny (np. Field Marshal's Log do czytania): vendor go nie kupi
+        local sell = select(11, ns.GetItemInfo(id))
+        if info.hasNoValue or not sell or sell == 0 then
+            return "misfits", "Grey item, no sell price"
+        end
+        return "vendor", "Grey item"
+    end
 
     -- tylko dla innej klasy (np. scrolle maga, gdy nie grasz magiem): na sprzedaż
     local forClass = OtherClassOnly(item)
@@ -507,6 +514,11 @@ local function Decide(item)
 
     local prof = ProfessionCategory(id, classID, subClassID)
     if prof then return prof.key, prof.label .. " material" end
+    -- Trade Goods z efektem "Use:" (oleje na broń, np. Lesser Mana Oil) to w praktyce consumables
+    if classID == TRADEGOODS then
+        local getSpell = (C_Item and C_Item.GetItemSpell) or GetItemSpell
+        if getSpell and getSpell(id) then return "consumables", "Consumable (weapon oil / usable trade good)" end
+    end
     if classID == TRADEGOODS or classID == GEM then return PriceDecision(item) end
     if classID == RECIPE then return RecipeDecision(item) end
     if classID == CONTAINER or classID == QUIVER then return BagDecision(item, classID, subClassID) end
@@ -517,8 +529,20 @@ local function Decide(item)
             return "misfits", "Soulbound, no vendor value"
         end
         if (info.quality or 1) >= 2 and IsRandomSuffix(item) then
-            item.randomSuffix = true
             item.vendorValue = ns.VendorValue(item)
+            -- cena tego wariantu zapamiętana z zakładki Selling Auctionatora (Auction.lua)
+            local unit = ns.SuffixPrice and ns.SuffixPrice(item.link)
+            if unit then
+                local vendor, ah = item.vendorValue, unit * (info.stackCount or 1)
+                item.auctionValue, item.suffixPriced = ah, true
+                if ns.AuctionWorthIt(vendor, ah) then
+                    return "auction", "Auctionator price for this variant: " .. ns.MoneyText(ah) .. " vs vendor " .. ns.MoneyText(vendor)
+                end
+                if vendor > 0 then
+                    return "vendor", "AH not worth it for this variant (" .. ns.MoneyText(ah) .. " vs " .. ns.MoneyText(vendor) .. ")"
+                end
+            end
+            item.randomSuffix = true
             return "auction", "Random-suffix item: real price only in Auctionator's Selling tab"
         end
         return PriceDecision(item)
@@ -537,6 +561,7 @@ function ns.Classify(item)
     item.sellPrice = sellPrice or 0
     item.classID = classID
     item.randomSuffix = nil
+    item.suffixPriced, item.auctionValue = nil, nil
     item.armorFit = ns.ArmorFit(classID, subClassID, equipLoc)
     item.armorType = item.armorFit and ns.ARMOR_NAMES[subClassID]
     local ok, cat, reason = pcall(Decide, item)

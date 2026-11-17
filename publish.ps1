@@ -11,8 +11,8 @@ $addon  = "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\P
 Set-Location $repo
 
 # 1. game folder -> repository
-Get-ChildItem $repo -File | Where-Object { $_.Extension -in ".lua", ".toc" -or $_.Name -eq "README.txt" } | Remove-Item
-Get-ChildItem $addon -File | Where-Object { $_.Extension -in ".lua", ".toc" -or $_.Name -eq "README.txt" } | Copy-Item -Destination $repo
+Get-ChildItem $repo -File | Where-Object { $_.Extension -in ".lua", ".toc", ".tga" -or $_.Name -eq "README.txt" } | Remove-Item
+Get-ChildItem $addon -File | Where-Object { $_.Extension -in ".lua", ".toc", ".tga" -or $_.Name -eq "README.txt" } | Copy-Item -Destination $repo
 
 # 2. version from the .toc
 $version = (Select-String -Path "$repo\PopokiBag.toc" -Pattern '^## Version:\s*(\S+)').Matches[0].Groups[1].Value
